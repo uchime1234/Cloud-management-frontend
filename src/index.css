@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 255 255 255;
+  --foreground: 15 23 42;
+  --border: 226 232 240;
+  --primary: 99 102 241;
+}
+
+.dark {
+  --background: 3 7 18;
+  --foreground: 248 250 252;
+  --border: 30 41 59;
+  --primary: 129 140 248;
+}
+
+* {
+  border-color: rgb(var(--border));
+}
+
+body {
+  background-color: rgb(var(--background));
+  color: rgb(var(--foreground));
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen;
+}
+
+.selected-card {
+  @apply ring-2 ring-indigo-500;
+}
