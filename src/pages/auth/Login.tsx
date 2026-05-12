@@ -36,7 +36,12 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
           username: formData.username,
           password: formData.password,
           mfa_code: formData.mfa_code || undefined
-        }
+        }, 
+         {
+    headers: {
+      'Content-Type': 'application/json'  // Explicitly set JSON header
+    }
+  }
       )
 
       if (response.data.mfa_required) {
@@ -103,13 +108,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     navigate("/auth/register")
   }
 
-  const handleUseEmail = () => {
-    // Optional: Switch between username and email
-    const isEmail = formData.username.includes('@')
-    if (!isEmail && !formData.username.includes('@')) {
-      setFormData({...formData, username: formData.username + '@example.com'})
-    }
-  }
+  
 
   return (
     <AuthLayout title="Welcome Back" subtitle="Sign in to your account">

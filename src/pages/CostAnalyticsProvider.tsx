@@ -478,44 +478,6 @@ interface StorageScanResult {
   };
 }
 
-interface UnusedResourceItem {
-  id: string;
-  resource_type: string;
-  resource_type_display: string;
-  resource_id: string;
-  resource_name: string;
-  region: string;
-  size_gb: number | null;
-  estimated_monthly_cost: number;
-  confidence_score: number;
-  reason: string;
-  recommendation: string;
-  severity: string;
-  severity_display: string;
-  status: string;
-  detected_at: string;
-}
-
-interface StorageFilters {
-  resource_type: string;
-  severity: string;
-  region: string;
-}
-
-
-interface DuplicateFindingItem {
-  id: string;
-  duplicate_type: string;
-  duplicate_type_display: string;
-  group_id: string;
-  group_name: string;
-  resources: string[];
-  total_wasted_size_gb: number | null;
-  estimated_savings: number;
-  reason: string;
-  recommendation: string;
-  detected_at: string;
-}
 
 // Add this near your other type definitions (around line 453):
 interface CpuDataItem {

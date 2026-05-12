@@ -61,7 +61,7 @@ type AwsAccount = {
 export const Security: React.FC = () => {
   const navigate = useNavigate()
   const [selectedMenu, setSelectedMenu] = useState<SecurityMenuItem>("dashboard")
-  const [loading, setLoading] = useState(false)
+ 
   const [accountId, setAccountId] = useState<number | null>(null)
   const [awsAccounts, setAwsAccounts] = useState<AwsAccount[]>([])
   
