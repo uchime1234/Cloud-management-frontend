@@ -730,6 +730,14 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     fetchUserAccounts()
   }, [provider, navigate])
 
+  // Add this useEffect to load cached idle results when the menu is selected
+useEffect(() => {
+  if (selectedMenu === "idle" && accountId && !idleResults && !idleScanning) {
+    // Load cached results on page load
+    scanAllIdleResources(false);
+  }
+}, [selectedMenu, accountId]);
+
   // Add this function to your frontend
 const fetchServiceBreakdownFromDB = async () => {
   if (!accountId) return;
@@ -788,7 +796,13 @@ useEffect(() => {
   }
 }, [selectedMenu, accountId]);
 
-
+// Add this useEffect to load cached storage results when the menu is selected
+useEffect(() => {
+  if (selectedMenu === "storage" && accountId && !storageResults && !storageScanning) {
+    // Load cached results on page load
+    runStorageScan(false);
+  }
+}, [selectedMenu, accountId]);
 
   const fetchCostAnalytics = async () => {
     if (!accountId) return

@@ -11,7 +11,7 @@ import { Login } from "./pages/auth/Login"
 import { MfaVerify } from "./pages/auth/MfaVerify"
 import { ForgotPassword } from "./pages/auth/ForgotPassword"
 import { TierSelection } from "./pages/auth/TierSelection"
-
+import LandingPage from './page'
 import { Dashboard } from "./pages/Dashboard"
 import { CostAnalytics } from "./pages/CostAnalytics"
 import CostAnalyticsProvider from "./pages/CostAnalyticsProvider"
@@ -39,7 +39,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/auth/login" replace />} />
+        <Route path="/" element={<LandingPage/>} />
         <Route path="/auth/register" element={<Register />} />
         <Route path="/auth/mfa-register" element={<MfaRegister />} />
         <Route path="/auth/login" element={<Login />} />
