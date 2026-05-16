@@ -1223,20 +1223,35 @@ const generateAIAnalysis = async () => {
 
   // GitHub Functions - Fixed to handle authentication properly
   const fetchGithubAuthUrl = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/github/auth-url/`, {
-        headers: getAuthHeaders()
-      });
-      
-      if (!response.ok) throw new Error('Failed to get auth URL');
-      
-      const data = await response.json();
-      window.location.href = data.auth_url;
-    } catch (error) {
-      console.error('Error getting GitHub auth URL:', error);
-      setStatus('❌ Failed to connect GitHub');
-    }
-  };
+  try {
+    console.log("🔍 Fetching GitHub auth URL from:", `${API_BASE_URL}/github/auth-url/`);
+    
+    const response = await fetch(`${API_BASE_URL}/github/auth-url/`, {
+      headers: getAuthHeaders()
+    });
+    
+    if (!response.ok) throw new Error('Failed to get auth URL');
+    
+    const data = await response.json();
+    console.log("📌 Received auth URL from backend:", data.auth_url);
+    console.log("📌 Redirect URI in this URL:", extractRedirectUri(data.auth_url));
+    
+    // You can also check what the redirect_uri parameter is
+    const urlParams = new URLSearchParams(data.auth_url.split('?')[1]);
+    console.log("📌 redirect_uri parameter:", urlParams.get('redirect_uri'));
+    
+    window.location.href = data.auth_url;
+  } catch (error) {
+    console.error('Error getting GitHub auth URL:', error);
+    setStatus('❌ Failed to connect GitHub');
+  }
+};
+
+// Helper function to extract redirect_uri
+function extractRedirectUri(authUrl: string) {
+  const match = authUrl.match(/redirect_uri=([^&]+)/);
+  return match ? decodeURIComponent(match[1]) : 'Not found';
+}
 
   
   const fetchConnectedRepos = async () => {
