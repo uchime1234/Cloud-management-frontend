@@ -3448,103 +3448,103 @@ const getChartLabels = () => {
   return (
     <DashboardLayout>
       <div className="flex h-[calc(100vh-4rem)]">
-        <div className="w-72 border-r border-border bg-card/50 overflow-y-auto">
-          <div className="p-4">
-            <button
-              onClick={() => navigate("/cost-analytics")}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Back to Providers
-            </button>
+      {/* LEFT SIDEBAR */}
+      <div className="w-72 border-r border-border bg-card/50 overflow-y-auto flex flex-col">
+        <div className="p-4 flex-1">
+          <button
+            onClick={() => navigate("/cost-analytics")}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back to Providers
+          </button>
 
-            <div className="mb-6">
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label htmlFor="account-select" className="block text-sm font-medium text-foreground mb-2">
-                    Select AWS Account
-                  </label>
-                    <select
-                      id="account-select"
-                      title="Select AWS Account"
-                      value={accountId || ""}
-                      onChange={(e) => {
-                        const newId = Number(e.target.value);
-                        setAccountId(newId);
-                        // Force refresh data when account changes
-                        if (selectedMenu === "overview") {
-                          fetchCostAnalytics();
-                        }
-                      }}
-                      className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                      disabled={!Array.isArray(awsAccounts) || awsAccounts.length === 0}
-                    >
-                      {!Array.isArray(awsAccounts) || awsAccounts.length === 0 ? (
-                        <option value="">No accounts connected</option>
-                      ) : (
-                        <>
-                          <option value="">Select an account</option>
-                          {awsAccounts.map((account) => (
-                            <option key={account.id} value={account.id}>
-                              {account.aws_account_id || account.aws_account_id  || 'Unknown'} {account.status === 'connected' ? "✓" : "⏳"}
-                            </option>
-                          ))}
-                        </>
-                      )}
-                    </select>
-                </div>
-                <button
-                  onClick={fetchUserAccounts}
-                  className="mt-6 px-3 py-2 bg-secondary text-secondary-foreground rounded-lg hover:opacity-80"
-                  title="Refresh accounts"
+          <div className="mb-6">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label htmlFor="account-select" className="block text-sm font-medium text-foreground mb-2">
+                  Select AWS Account
+                </label>
+                <select
+                  id="account-select"
+                  title="Select AWS Account"
+                  value={accountId || ""}
+                  onChange={(e) => {
+                    const newId = Number(e.target.value);
+                    setAccountId(newId);
+                    if (selectedMenu === "overview") {
+                      fetchCostAnalytics();
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  disabled={!Array.isArray(awsAccounts) || awsAccounts.length === 0}
                 >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
+                  {!Array.isArray(awsAccounts) || awsAccounts.length === 0 ? (
+                    <option value="">No accounts connected</option>
+                  ) : (
+                    <>
+                      <option value="">Select an account</option>
+                      {awsAccounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.aws_account_id || account.account_id || 'Unknown'} {account.status === 'connected' ? "✓" : "⏳"}
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
               </div>
-              <div className="mt-2 text-xs text-muted-foreground">
-                {!Array.isArray(awsAccounts) || awsAccounts.length === 0 
-                  ? "Connect an AWS account to view analytics" 
-                  : `${awsAccounts.length} account(s) connected`}
-              </div>
+              <button
+                onClick={fetchUserAccounts}
+                className="mt-6 px-3 py-2 bg-secondary text-secondary-foreground rounded-lg hover:opacity-80"
+                title="Refresh accounts"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
             </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              {!Array.isArray(awsAccounts) || awsAccounts.length === 0 
+                ? "Connect an AWS account to view analytics" 
+                : `${awsAccounts.length} account(s) connected`}
+            </div>
+          </div>
 
-            {/* Menu items */}
-            <div className="space-y-1">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setSelectedMenu(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                    selectedMenu === item.id
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  {item.icon}
-                  {item.label}
-                </button>
-              ))}
-            </div>
+          {/* Menu items */}
+          <div className="space-y-1">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setSelectedMenu(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                  selectedMenu === item.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* 🗑️ DELETE ACCOUNT BUTTON - AT THE BOTTOM OF SIDEBAR */}
-    <div className="p-4 mt-auto border-t border-border">
-      <button
-        onClick={() => {
-          if (window.confirm('⚠️ WARNING: This will permanently delete your account and ALL data. This action cannot be undone. Are you absolutely sure?')) {
-            const confirmText = window.prompt('Type "DELETE MY ACCOUNT" to confirm:');
-            if (confirmText === 'DELETE MY ACCOUNT') {
-              deleteAccount();
-            }
-          }
-        }}
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-      >
-        <Trash2 className="w-4 h-4" />
-        Delete Account
-      </button>
-    </div>
+        <div className="p-4 mt-auto border-t border-border">
+          <button
+            onClick={() => {
+              if (window.confirm('⚠️ WARNING: This will permanently delete your account and ALL data. This action cannot be undone. Are you absolutely sure?')) {
+                const confirmText = window.prompt('Type "DELETE MY ACCOUNT" to confirm:');
+                if (confirmText === 'DELETE MY ACCOUNT') {
+                  deleteAccount();
+                }
+              }
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete Account
+          </button>
+        </div>
+      </div>
   
 
         <div className="flex-1 overflow-y-auto p-8">
@@ -5634,7 +5634,9 @@ const getChartLabels = () => {
           </li>
           <li className="flex items-start gap-2">
             <span className="text-blue-500 mt-1">•</span>
-            <span className="text-muted-foreground">Click <strong>"Next"</strong> → Name the role: <code className="font-mono font-bold bg-muted px-2 py-0.5 rounded">{awsInfo?.role_name || "CloudCostReadOnlyRole"}</code></li>
+            <span className="text-muted-foreground">Click <strong>"Next"</strong> → Name the role: <code className="font-mono font-bold bg-muted px-2 py-0.5 rounded">{awsInfo?.role_name || "CloudCostReadOnlyRole"}</code>
+             </span>
+          </li> 
                
           <li className="flex items-start gap-2">
             <span className="text-blue-500 mt-1">•</span>
@@ -5891,6 +5893,7 @@ const getChartLabels = () => {
           </div>
         </div>
       </div>
+      
     </DashboardLayout>
   )
 }
