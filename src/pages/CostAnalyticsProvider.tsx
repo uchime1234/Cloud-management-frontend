@@ -562,6 +562,8 @@ const CostAnalyticsProvider: React.FC = () => {
   const [githubLoading, setGithubLoading] = useState<boolean>(false);
   const [selectedReposForCostAnalysis, setSelectedReposForCostAnalysis] = useState<number[]>([]);
   const [analyzingCosts, setAnalyzingCosts] = useState<boolean>(false);
+  // Add this with your other state declarations (around line 500-550)
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [costAnalysisResults, setCostAnalysisResults] = useState<any[]>([]);
   const [costSummary, setCostSummary] = useState<any>(null);
   const [forecastData, setForecastData] = useState<any>(null);
@@ -1350,6 +1352,35 @@ const fetchGithubStatus = async () => {
   }
 };
 
+const deleteAccount = async () => {
+  setDeletingAccount(true);
+  setStatus('🗑️ Deleting your account...');
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/user/delete-account/`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok && data.success) {
+      setStatus('✅ Account deleted. Redirecting...');
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    } else {
+      throw new Error(data.error || 'Failed to delete account');
+    }
+  } catch (error: any) {
+    setStatus(`❌ ${error.message}`);
+    setDeletingAccount(false);
+  }
+};
+
+
 const connectRepo = async (repo: any, awsAccountId?: number) => {
   console.log("🔍 connectRepo called with:", repo.full_name, awsAccountId);
   
@@ -1920,6 +1951,8 @@ const AILowLevelRecommendations: React.FC<{ accountId: number | null }> = ({ acc
       setLoading(false);
     }
   };
+
+  // Delete Account function - Add this before the AILowLevelRecommendations component
 
   const generateNewAnalysis = async () => {
     if (!accountId) return;
@@ -3494,6 +3527,25 @@ const getChartLabels = () => {
             </div>
           </div>
         </div>
+
+        {/* 🗑️ DELETE ACCOUNT BUTTON - AT THE BOTTOM OF SIDEBAR */}
+    <div className="p-4 mt-auto border-t border-border">
+      <button
+        onClick={() => {
+          if (window.confirm('⚠️ WARNING: This will permanently delete your account and ALL data. This action cannot be undone. Are you absolutely sure?')) {
+            const confirmText = window.prompt('Type "DELETE MY ACCOUNT" to confirm:');
+            if (confirmText === 'DELETE MY ACCOUNT') {
+              deleteAccount();
+            }
+          }
+        }}
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+      >
+        <Trash2 className="w-4 h-4" />
+        Delete Account
+      </button>
+    </div>
+  
 
         <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-6xl mx-auto space-y-6">
@@ -5150,216 +5202,657 @@ const getChartLabels = () => {
   </div>
 )}
 
-            {selectedMenu === "connect" && (
-              <Card className="p-6">
-                <h3 className="text-2xl font-bold text-foreground mb-2">
-                  Connect Your AWS Account
-                </h3>
-                <p className="text-muted-foreground mb-6">
-                  Securely connect your AWS account to monitor cost and resources
-                </p>
+ {selectedMenu === "connect" && (
+  <Card className="p-6">
+    <h3 className="text-2xl font-bold text-foreground mb-2">
+      Connect Your AWS Account
+    </h3>
+    <p className="text-muted-foreground mb-6">
+      Securely connect your AWS account to monitor costs, resources, and security
+    </p>
 
-                {awsAccounts.length > 0 && (
-                  <div className="mb-6 p-4 bg-success/10 border border-success/20 rounded-lg">
-                    <div className="flex items-center gap-2 text-success">
-                      <CheckCircle className="w-5 h-5" />
-                      <span className="font-medium">
-                        {awsAccounts.length} AWS account(s) already connected
-                      </span>
-                    </div>
-                    <p className="text-sm text-success/80 mt-1">
-                      Switch to "Overview" tab to view cost analytics
-                    </p>
-                  </div>
-                )}
+    {awsAccounts.length > 0 && (
+      <div className="mb-6 p-4 bg-success/10 border border-success/20 rounded-lg">
+        <div className="flex items-center gap-2 text-success">
+          <CheckCircle className="w-5 h-5" />
+          <span className="font-medium">
+            {awsAccounts.length} AWS account(s) already connected
+          </span>
+        </div>
+        <p className="text-sm text-success/80 mt-1">
+          Switch to "Overview" tab to view cost analytics
+        </p>
+      </div>
+    )}
 
-                <div className="space-y-6 mb-8">
-                  {manualInstructions.steps.map((step, index) => (
-                    <div key={index} className="border-l-4 border-blue-500 pl-4">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
-                          <span className="font-semibold text-blue-700 dark:text-blue-300">
-                            {index + 1}
-                          </span>
-                        </div>
-                        <h4 className="font-semibold text-lg text-foreground">{step.title}</h4>
-                      </div>
-                      <ul className="space-y-2 ml-11">
-                        {step.instructions.map((instruction, i) => {
-                          let displayInstruction = instruction
-                          if (instruction.includes("026395503692")) {
-                            displayInstruction = instruction.replace(
-                              "026395503692",
-                              `<span class="font-bold text-blue-600">${awsInfo?.platform_account_id || "026395503692"}</span>`
-                            )
-                          }
-                          if (instruction.includes("CloudCostReadOnlyRole")) {
-                            displayInstruction = instruction.replace(
-                              "CloudCostReadOnlyRole",
-                              `<span class="font-bold text-blue-600">${awsInfo?.role_name || "CloudCostReadOnlyRole"}</span>`
-                            )
-                          }
-                          
-                          return (
-                            <li key={i} className="flex items-start gap-2">
-                              <span className="text-blue-500 mt-1">•</span>
-                              <span 
-                                className="text-muted-foreground"
-                                dangerouslySetInnerHTML={{ __html: displayInstruction }}
-                              />
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
+    {/* Step-by-step instructions */}
+    <div className="space-y-6 mb-8">
+      {/* Step 1: Create Policies */}
+      <div className="border-l-4 border-blue-500 pl-4">
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+            <span className="font-semibold text-blue-700 dark:text-blue-300">1</span>
+          </div>
+          <h4 className="font-semibold text-lg text-foreground">Create IAM Policies</h4>
+        </div>
+        
+        <div className="ml-11 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            You'll need to create 4 policies for complete access. Click each to copy the JSON:
+          </p>
+          
+          {/* Policy 1: Cost Explorer & Billing */}
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="flex justify-between items-center p-3 bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+                 onClick={() => {
+                   const policy = document.getElementById('policy-billing-json');
+                   if (policy) policy.classList.toggle('hidden');
+                 }}>
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-green-500" />
+                <span className="font-medium">Policy 1: Cost Explorer & Billing Access</span>
+              </div>
+              <ChevronDown className="w-4 h-4" />
+            </div>
+            <div id="policy-billing-json" className="hidden">
+              <div className="relative">
+                <pre className="p-4 bg-muted text-xs font-mono overflow-auto max-h-60">
+{`{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ce:GetCostAndUsage",
+        "ce:GetCostForecast",
+        "ce:GetDimensionValues",
+        "ce:GetReservationCoverage",
+        "ce:GetSavingsPlansCoverage",
+        "ce:GetSavingsPlansUtilization",
+        "ce:GetRightsizingRecommendation",
+        "aws-portal:ViewBilling",
+        "aws-portal:ViewUsage",
+        "budgets:ViewBudget"
+      ],
+      "Resource": "*"
+    }
+  ]
+}`}
+                </pre>
+                <button
+                  onClick={() => {
+                    const json = `{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ce:GetCostAndUsage",
+        "ce:GetCostForecast",
+        "ce:GetDimensionValues",
+        "ce:GetReservationCoverage",
+        "ce:GetSavingsPlansCoverage",
+        "ce:GetSavingsPlansUtilization",
+        "ce:GetRightsizingRecommendation",
+        "aws-portal:ViewBilling",
+        "aws-portal:ViewUsage",
+        "budgets:ViewBudget"
+      ],
+      "Resource": "*"
+    }
+  ]
+}`;
+                    navigator.clipboard.writeText(json);
+                    setStatus("✅ Policy JSON copied!");
+                    setIsConnectionSuccess(true);
+                    setTimeout(() => setStatus(''), 2000);
+                  }}
+                  className="absolute top-2 right-2 px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition"
+                >
+                  <Copy className="w-3 h-3 inline mr-1" /> Copy
+                </button>
+              </div>
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 text-xs">
+                <span className="font-medium">📝 Name it:</span> <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">CloudCostBillingPolicy</code>
+              </div>
+            </div>
+          </div>
 
-                {awsInfo && (
-                  <div className="mb-6 p-4 bg-muted rounded-lg">
-                    <h4 className="font-semibold text-foreground mb-3">Required Information</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Platform AWS Account ID:</span>
-                        <code className="font-mono font-bold text-foreground">
-                          {awsInfo.platform_account_id}
-                        </code>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Role Name:</span>
-                        <code className="font-mono font-bold text-foreground">
-                          {awsInfo.role_name}
-                        </code>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-border">
-                        <span className="text-muted-foreground">Permissions included:</span>
-                        <p className="text-sm text-foreground mt-1">
-                          Read-only billing, compute, storage, IAM metadata, and cost explorer access
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+          {/* Policy 2: Compute Resources (EC2, Lambda, ECS, EKS) */}
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="flex justify-between items-center p-3 bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+                 onClick={() => {
+                   const policy = document.getElementById('policy-compute-json');
+                   if (policy) policy.classList.toggle('hidden');
+                 }}>
+              <div className="flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-purple-500" />
+                <span className="font-medium">Policy 2: Compute Resources (EC2, Lambda, ECS, EKS)</span>
+              </div>
+              <ChevronDown className="w-4 h-4" />
+            </div>
+            <div id="policy-compute-json" className="hidden">
+              <div className="relative">
+                <pre className="p-4 bg-muted text-xs font-mono overflow-auto max-h-60">
+{`{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:Describe*",
+        "ec2:Get*",
+        "ec2:List*",
+        "lambda:List*",
+        "lambda:Get*",
+        "ecs:List*",
+        "ecs:Describe*",
+        "eks:List*",
+        "eks:Describe*",
+        "elasticache:Describe*",
+        "elasticache:List*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}`}
+                </pre>
+                <button
+                  onClick={() => {
+                    const json = `{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:Describe*",
+        "ec2:Get*",
+        "ec2:List*",
+        "lambda:List*",
+        "lambda:Get*",
+        "ecs:List*",
+        "ecs:Describe*",
+        "eks:List*",
+        "eks:Describe*",
+        "elasticache:Describe*",
+        "elasticache:List*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}`;
+                    navigator.clipboard.writeText(json);
+                    setStatus("✅ Policy JSON copied!");
+                    setIsConnectionSuccess(true);
+                    setTimeout(() => setStatus(''), 2000);
+                  }}
+                  className="absolute top-2 right-2 px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition"
+                >
+                  <Copy className="w-3 h-3 inline mr-1" /> Copy
+                </button>
+              </div>
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 text-xs">
+                <span className="font-medium">📝 Name it:</span> <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">CloudCostComputePolicy</code>
+              </div>
+            </div>
+          </div>
 
-                <div className="mb-6">
-                  <button
-                    onClick={createRoleInAws}
-                    disabled={awsLoading}
-                    className="w-full h-12 px-6 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {awsLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Generating External ID...
-                      </span>
-                    ) : (
-                      "Step 1: Generate External ID"
-                    )}
-                  </button>
-                </div>
+          {/* Policy 3: Storage Resources (S3, EBS, EFS, RDS, DynamoDB) */}
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="flex justify-between items-center p-3 bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+                 onClick={() => {
+                   const policy = document.getElementById('policy-storage-json');
+                   if (policy) policy.classList.toggle('hidden');
+                 }}>
+              <div className="flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-yellow-500" />
+                <span className="font-medium">Policy 3: Storage & Database Resources</span>
+              </div>
+              <ChevronDown className="w-4 h-4" />
+            </div>
+            <div id="policy-storage-json" className="hidden">
+              <div className="relative">
+                <pre className="p-4 bg-muted text-xs font-mono overflow-auto max-h-60">
+{`{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketLocation",
+        "s3:GetBucketAcl",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetObjectAcl",
+        "s3:GetObjectVersionAcl",
+        "s3:GetBucketTagging",
+        "s3:GetLifecycleConfiguration",
+        "rds:Describe*",
+        "rds:List*",
+        "dynamodb:List*",
+        "dynamodb:Describe*",
+        "dynamodb:Get*",
+        "elasticfilesystem:Describe*",
+        "elasticfilesystem:List*",
+        "ebs:Describe*",
+        "ebs:List*",
+        "storagegateway:List*",
+        "storagegateway:Describe*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}`}
+                </pre>
+                <button
+                  onClick={() => {
+                    const json = `{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketLocation",
+        "s3:GetBucketAcl",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetObjectAcl",
+        "s3:GetObjectVersionAcl",
+        "s3:GetBucketTagging",
+        "s3:GetLifecycleConfiguration",
+        "rds:Describe*",
+        "rds:List*",
+        "dynamodb:List*",
+        "dynamodb:Describe*",
+        "dynamodb:Get*",
+        "elasticfilesystem:Describe*",
+        "elasticfilesystem:List*",
+        "ebs:Describe*",
+        "ebs:List*",
+        "storagegateway:List*",
+        "storagegateway:Describe*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}`;
+                    navigator.clipboard.writeText(json);
+                    setStatus("✅ Policy JSON copied!");
+                    setIsConnectionSuccess(true);
+                    setTimeout(() => setStatus(''), 2000);
+                  }}
+                  className="absolute top-2 right-2 px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition"
+                >
+                  <Copy className="w-3 h-3 inline mr-1" /> Copy
+                </button>
+              </div>
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 text-xs">
+                <span className="font-medium">📝 Name it:</span> <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">CloudCostStoragePolicy</code>
+              </div>
+            </div>
+          </div>
 
-                {externalId && (
-                  <div className="mb-8 space-y-6">
-                    <div>
-                      <h4 className="font-semibold text-foreground mb-3">Step 2: Copy External ID</h4>
-                      <div className="relative">
-                        <code className="block p-4 bg-muted rounded-lg text-sm font-mono break-all">
-                          {externalId}
-                        </code>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(externalId)
-                            setStatus("External ID copied to clipboard!")
-                            setIsConnectionSuccess(true)
-                            setTimeout(() => setStatus(''), 2000)
-                          }}
-                          className="absolute top-2 right-2 px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition"
-                        >
-                          Copy
-                        </button>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        This External ID is required when creating the IAM role in AWS
-                      </p>
-                    </div>
+          {/* Policy 4: Networking & Security (VPC, Load Balancers, WAF, IAM) */}
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="flex justify-between items-center p-3 bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+                 onClick={() => {
+                   const policy = document.getElementById('policy-network-json');
+                   if (policy) policy.classList.toggle('hidden');
+                 }}>
+              <div className="flex items-center gap-2">
+                <Network className="w-4 h-4 text-red-500" />
+                <span className="font-medium">Policy 4: Networking, Security & IAM</span>
+              </div>
+              <ChevronDown className="w-4 h-4" />
+            </div>
+            <div id="policy-network-json" className="hidden">
+              <div className="relative">
+                <pre className="p-4 bg-muted text-xs font-mono overflow-auto max-h-60">
+{`{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:Describe*",
+        "ec2:Get*",
+        "elasticloadbalancing:Describe*",
+        "elasticloadbalancing:List*",
+        "waf:List*",
+        "waf:Get*",
+        "wafv2:List*",
+        "wafv2:Get*",
+        "apigateway:GET",
+        "apigateway:describe*",
+        "cloudfront:List*",
+        "cloudfront:Get*",
+        "route53:List*",
+        "route53:Get*",
+        "iam:List*",
+        "iam:Get*",
+        "iam:GenerateCredentialReport",
+        "iam:GetCredentialReport",
+        "iam:GetAccountSummary"
+      ],
+      "Resource": "*"
+    }
+  ]
+}`}
+                </pre>
+                <button
+                  onClick={() => {
+                    const json = `{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:Describe*",
+        "ec2:Get*",
+        "elasticloadbalancing:Describe*",
+        "elasticloadbalancing:List*",
+        "waf:List*",
+        "waf:Get*",
+        "wafv2:List*",
+        "wafv2:Get*",
+        "apigateway:GET",
+        "apigateway:describe*",
+        "cloudfront:List*",
+        "cloudfront:Get*",
+        "route53:List*",
+        "route53:Get*",
+        "iam:List*",
+        "iam:Get*",
+        "iam:GenerateCredentialReport",
+        "iam:GetCredentialReport",
+        "iam:GetAccountSummary"
+      ],
+      "Resource": "*"
+    }
+  ]
+}`;
+                    navigator.clipboard.writeText(json);
+                    setStatus("✅ Policy JSON copied!");
+                    setIsConnectionSuccess(true);
+                    setTimeout(() => setStatus(''), 2000);
+                  }}
+                  className="absolute top-2 right-2 px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition"
+                >
+                  <Copy className="w-3 h-3 inline mr-1" /> Copy
+                </button>
+              </div>
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 text-xs">
+                <span className="font-medium">📝 Name it:</span> <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">CloudCostSecurityPolicy</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-                    <div>
-                      <h4 className="font-semibold text-foreground mb-3">Step 3: Copy Policy JSON</h4>
-                      <div className="relative">
-                        <pre className="p-4 bg-muted rounded-lg text-xs font-mono overflow-auto max-h-60">
-                          {policyJson}
-                        </pre>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(policyJson)
-                            setStatus("Policy JSON copied to clipboard!")
-                            setIsConnectionSuccess(true)
-                            setTimeout(() => setStatus(''), 2000)
-                          }}
-                          className="absolute top-2 right-2 px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition"
-                        >
-                          Copy
-                        </button>
-                      </div>
-                    </div>
+      {/* Step 2: Create the Role */}
+      <div className="border-l-4 border-blue-500 pl-4">
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+            <span className="font-semibold text-blue-700 dark:text-blue-300">2</span>
+          </div>
+          <h4 className="font-semibold text-lg text-foreground">Create IAM Role & Attach Policies</h4>
+        </div>
+        <ul className="space-y-2 ml-11">
+          <li className="flex items-start gap-2">
+            <span className="text-blue-500 mt-1">•</span>
+            <span className="text-muted-foreground">Navigate to IAM → Roles → Create Role</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-blue-500 mt-1">•</span>
+            <span className="text-muted-foreground">Select <strong>"Another AWS account"</strong></span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-blue-500 mt-1">•</span>
+            <span className="text-muted-foreground">
+              Enter Platform Account ID: <code className="font-mono font-bold bg-muted px-2 py-0.5 rounded">{awsInfo?.platform_account_id || "026395503692"}</code>
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-blue-500 mt-1">•</span>
+            <span className="text-muted-foreground">✓ Check <strong>"Require external ID"</strong></span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-blue-500 mt-1">•</span>
+            <span className="text-muted-foreground">
+              Paste External ID: <code className="font-mono font-bold bg-muted px-2 py-0.5 rounded">{externalId || "[Generate External ID first]"}</code>
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-blue-500 mt-1">•</span>
+            <span className="text-muted-foreground">Click <strong>"Next"</strong></span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-blue-500 mt-1">•</span>
+            <span className="text-muted-foreground">Search for and attach ALL 4 policies created above</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-blue-500 mt-1">•</span>
+            <span className="text-muted-foreground">Click <strong>"Next"</strong> → Name the role: <code className="font-mono font-bold bg-muted px-2 py-0.5 rounded">{awsInfo?.role_name || "CloudCostReadOnlyRole"}</code></li>
+               
+          <li className="flex items-start gap-2">
+            <span className="text-blue-500 mt-1">•</span>
+            <span className="text-muted-foreground">Click <strong>"Create Role"</strong></span>
+          </li>
+        </ul>
+      </div>
 
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                      <h4 className="font-semibold text-blue-700 dark:text-blue-300 mb-2">
-                        Important Notes
-                      </h4>
-                      <ul className="space-y-1 text-sm text-blue-600 dark:text-blue-400">
-                        <li>• Complete all 4 steps in the AWS Console before proceeding</li>
-                        <li>• The External ID ensures secure cross-account access</li>
-                        <li>• The policy provides read-only access only</li>
-                        <li>• After creating the role, AWS will provide a Role ARN</li>
-                      </ul>
-                    </div>
-                  </div>
-                )}
+      {/* Step 3: Trust Policy */}
+      <div className="border-l-4 border-blue-500 pl-4">
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+            <span className="font-semibold text-blue-700 dark:text-blue-300">3</span>
+          </div>
+          <h4 className="font-semibold text-lg text-foreground">Update Trust Relationship (Important!)</h4>
+        </div>
+        <div className="ml-11">
+          <p className="text-sm text-muted-foreground mb-2">After creating the role, update the trust policy:</p>
+          <div className="relative">
+            <pre className="p-4 bg-muted text-xs font-mono overflow-auto max-h-48">
+{`{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::${awsInfo?.platform_account_id || "026395503692"}:root"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "sts:ExternalId": "${externalId || "EXTERNAL_ID_HERE"}"
+        }
+      }
+    }
+  ]
+}`}
+            </pre>
+            <button
+              onClick={() => {
+                const trustPolicy = `{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::${awsInfo?.platform_account_id || "026395503692"}:root"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "sts:ExternalId": "${externalId || "EXTERNAL_ID_HERE"}"
+        }
+      }
+    }
+  ]
+}`;
+                navigator.clipboard.writeText(trustPolicy);
+                setStatus("✅ Trust Policy copied!");
+                setIsConnectionSuccess(true);
+                setTimeout(() => setStatus(''), 2000);
+              }}
+              className="absolute top-2 right-2 px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition"
+            >
+              <Copy className="w-3 h-3 inline mr-1" /> Copy
+            </button>
+          </div>
+        </div>
+      </div>
 
-                <div>
-                  <h4 className="font-semibold text-foreground mb-3">
-                    Step 4: Enter Role ARN
-                  </h4>
-                  <div className="space-y-4">
-                    <input
-                      value={roleArn}
-                      onChange={(e) => setRoleArn(e.target.value)}
-                      placeholder="arn:aws:iam::123456789012:role/CloudCostReadOnlyRole"
-                      className="w-full px-4 py-3 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                      disabled={!externalId}
-                    />
-                    <button
-                      onClick={connectAccount}
-                      disabled={awsLoading || !roleArn.trim()}
-                      className="w-full h-12 px-6 bg-green-600 text-white rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {awsLoading ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Connecting...
-                        </span>
-                      ) : (
-                        "Connect AWS Account"
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-3">
-                    Paste the Role ARN exactly as shown in AWS IAM Console
-                  </p>
-                </div>
+      {/* Step 4: Copy Role ARN */}
+      <div className="border-l-4 border-blue-500 pl-4">
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+            <span className="font-semibold text-blue-700 dark:text-blue-300">4</span>
+          </div>
+          <h4 className="font-semibold text-lg text-foreground">Copy Role ARN</h4>
+        </div>
+        <ul className="space-y-2 ml-11">
+          <li className="flex items-start gap-2">
+            <span className="text-blue-500 mt-1">•</span>
+            <span className="text-muted-foreground">Go to the created role in IAM Console</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-blue-500 mt-1">•</span>
+            <span className="text-muted-foreground">Copy the <strong>Role ARN</strong> (starts with <code className="font-mono text-xs">arn:aws:iam::</code>)</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-blue-500 mt-1">•</span>
+            <span className="text-muted-foreground">Paste it in the input field below</span>
+          </li>
+        </ul>
+      </div>
+    </div>
 
-                <div className="mt-8 pt-6 border-t border-border">
-                  <h4 className="font-semibold text-foreground mb-3">Need Help?</h4>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li>• Ensure you have IAM permissions to create roles in your AWS account</li>
-                    <li>• Verify the External ID matches exactly</li>
-                    <li>• Check that the trust relationship includes Account ID: {awsInfo?.platform_account_id || "026395503692"}</li>
-                    <li>• Make sure the role name is exactly "CloudCostReadOnlyRole"</li>
-                  </ul>
-                </div>
-              </Card>
-            )}
+    {awsInfo && (
+      <div className="mb-6 p-4 bg-muted rounded-lg">
+        <h4 className="font-semibold text-foreground mb-3">Required Information Summary</h4>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Platform AWS Account ID:</span>
+            <code className="font-mono font-bold text-foreground">{awsInfo.platform_account_id}</code>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Role Name:</span>
+            <code className="font-mono font-bold text-foreground">{awsInfo.role_name}</code>
+          </div>
+          {externalId && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">External ID:</span>
+              <code className="font-mono font-bold text-foreground">{externalId}</code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(externalId);
+                  setStatus("External ID copied!");
+                  setIsConnectionSuccess(true);
+                  setTimeout(() => setStatus(''), 2000);
+                }}
+                className="text-xs text-primary hover:underline"
+              >
+                Copy
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* Generate External ID Button */}
+    <div className="mb-6">
+      <button
+        onClick={createRoleInAws}
+        disabled={awsLoading}
+        className="w-full h-12 px-6 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {awsLoading ? (
+          <span className="flex items-center justify-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Generating External ID...
+          </span>
+        ) : (
+          "Generate External ID (Required for Trust Policy)"
+        )}
+      </button>
+    </div>
+
+    {/* Enter Role ARN */}
+    <div>
+      <h4 className="font-semibold text-foreground mb-3">
+        Step 5: Enter Role ARN
+      </h4>
+      <div className="space-y-4">
+        <input
+          value={roleArn}
+          onChange={(e) => setRoleArn(e.target.value)}
+          placeholder="arn:aws:iam::123456789012:role/CloudCostReadOnlyRole"
+          className="w-full px-4 py-3 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          disabled={!externalId}
+        />
+        <button
+          onClick={connectAccount}
+          disabled={awsLoading || !roleArn.trim()}
+          className="w-full h-12 px-6 bg-green-600 text-white rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {awsLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Connecting...
+            </span>
+          ) : (
+            "Connect AWS Account"
+          )}
+        </button>
+      </div>
+      <p className="text-sm text-muted-foreground mt-3">
+        Paste the Role ARN exactly as shown in AWS IAM Console
+      </p>
+    </div>
+
+    {/* Help Section */}
+    <div className="mt-8 pt-6 border-t border-border">
+      <h4 className="font-semibold text-foreground mb-3">📋 Policy Summary (All 4 Policies Needed)</h4>
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="p-3 bg-muted rounded-lg">
+          <DollarSign className="w-4 h-4 text-green-500 inline mr-1" />
+          <span className="font-medium">Billing Policy</span>
+          <p className="text-xs text-muted-foreground mt-1">Cost Explorer, Budgets, Billing</p>
+        </div>
+        <div className="p-3 bg-muted rounded-lg">
+          <Cpu className="w-4 h-4 text-purple-500 inline mr-1" />
+          <span className="font-medium">Compute Policy</span>
+          <p className="text-xs text-muted-foreground mt-1">EC2, Lambda, ECS, EKS</p>
+        </div>
+        <div className="p-3 bg-muted rounded-lg">
+          <HardDrive className="w-4 h-4 text-yellow-500 inline mr-1" />
+          <span className="font-medium">Storage Policy</span>
+          <p className="text-xs text-muted-foreground mt-1">S3, EBS, RDS, DynamoDB</p>
+        </div>
+        <div className="p-3 bg-muted rounded-lg">
+          <Shield className="w-4 h-4 text-red-500 inline mr-1" />
+          <span className="font-medium">Security Policy</span>
+          <p className="text-xs text-muted-foreground mt-1">VPC, WAF, IAM, Load Balancers</p>
+        </div>
+      </div>
+    </div>
+
+    <div className="mt-6 pt-4 border-t border-border">
+      <h4 className="font-semibold text-foreground mb-3">Need Help?</h4>
+      <ul className="space-y-2 text-sm text-muted-foreground">
+        <li>• Ensure you have IAM permissions to create roles and policies in your AWS account</li>
+        <li>• The External ID in the trust policy must match exactly</li>
+        <li>• All 4 policies must be attached to the role for full functionality</li>
+        <li>• Make sure the role name is exactly "<strong>{awsInfo?.role_name || "CloudCostReadOnlyRole"}</strong>"</li>
+        <li>• The role ARN format should be: <code className="text-xs">arn:aws:iam::YOUR_ACCOUNT_ID:role/CloudCostReadOnlyRole</code></li>
+      </ul>
+    </div>
+  </Card>
+)}
 
             {!["overview", "connect", "services", "resources", "github", "deployments", "forecast", "rightsizing", "storage", "idle"].includes(selectedMenu) && (
               <Card>
