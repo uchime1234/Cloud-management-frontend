@@ -40,6 +40,16 @@ import {
   Server,
   Wifi,
   Unlock,
+  Link2,
+  Plus,
+  Minus,
+  Clock,
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
+  ChevronRight,
+  MessageSquare,
+  X
 } from "lucide-react"
 
 // Types
@@ -123,7 +133,40 @@ export const Security: React.FC = () => {
   const [expandedFinding, setExpandedFinding] = useState<number | null>(null)
   const [filterSeverity, setFilterSeverity] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
+
+  // Security Group Analyzer States
+const [securityGroups, setSecurityGroups] = useState<any[]>([])
+const [selectedSecurityGroup, setSelectedSecurityGroup] = useState<any>(null)
+const [sgLoading, setSgLoading] = useState(false)
+const [sgScanning, setSgScanning] = useState(false)
+const [sgCached, setSgCached] = useState(false)
+const [sgSearchQuery, setSgSearchQuery] = useState("")
+const [sgSeverityFilter, setSgSeverityFilter] = useState<string>("all")
+const [sgExpandedSection, setSgExpandedSection] = useState("overview")
+const [sgStatus, setSgStatus] = useState("")
+
+// Encryption Checker States
+const [encryptionSummary, setEncryptionSummary] = useState<any>(null)
+const [encryptionFindings, setEncryptionFindings] = useState<any[]>([])
+const [encryptionRecommendations, setEncryptionRecommendations] = useState<any[]>([])
+const [encryptionLoading, setEncryptionLoading] = useState(false)
+const [encryptionScanning, setEncryptionScanning] = useState(false)
+const [encryptionCached, setEncryptionCached] = useState(false)
+const [encryptionFilterSeverity, setEncryptionFilterSeverity] = useState<string>("all")
+const [encryptionSearchQuery, setEncryptionSearchQuery] = useState("")
+const [encryptionStatus, setEncryptionStatus] = useState("")
+const [selectedResource, setSelectedResource] = useState<any>(null)
+const [showActionModal, setShowActionModal] = useState(false)
+const [actionInProgress, setActionInProgress] = useState(false)
+const [actionResult, setActionResult] = useState<any>(null)
   
+// Load security groups when account changes
+useEffect(() => {
+  if (accountId && selectedMenu === "security-groups") {
+    loadSecurityGroups()
+  }
+}, [accountId, selectedMenu])
+
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
   
   const getAuthToken = () => {
@@ -271,6 +314,15 @@ export const Security: React.FC = () => {
     }
   }
 
+  // Load encryption data when account changes or menu selects encryption
+useEffect(() => {
+  if (accountId && selectedMenu === "encryption") {
+    loadEncryptionSummary()
+    loadEncryptionFindings()
+    loadEncryptionRecommendations()
+  }
+}, [accountId, selectedMenu, encryptionFilterSeverity])
+
   // ============================================================
   // PUBLIC EXPOSURE FUNCTIONS
   // ============================================================
@@ -306,7 +358,469 @@ export const Security: React.FC = () => {
     }
   }
 
+  // ============================================================
+// ENCRYPTION CHECKER FUNCTIONS
+// ============================================================
+
+// Load encryption summary
+const loadEncryptionSummary = async () => {
+  if (!accountId) return
+  
+  setEncryptionLoading(true)
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/security/encryption/summary/${accountId}/`, {
+      headers: getAuthHeaders()
+    })
+    
+    if (!response.ok) throw new Error('Failed to load encryption summary')
+    
+    const data = await response.json()
+    
+    if (data.success) {
+      setEncryptionSummary(data.summary)
+      setEncryptionCached(data.cached || false)
+    }
+  } catch (error: any) {
+    console.error('Error loading encryption summary:', error)
+  } finally {
+    setEncryptionLoading(false)
+  }
+}
+
+// Load encryption findings
+const loadEncryptionFindings = async () => {
+  if (!accountId) return
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/security/encryption/findings/${accountId}/?severity=${encryptionFilterSeverity}`, {
+      headers: getAuthHeaders()
+    })
+    
+    if (!response.ok) throw new Error('Failed to load encryption findings')
+    
+    const data = await response.json()
+    
+    if (data.success) {
+      setEncryptionFindings(data.findings || [])
+    }
+  } catch (error: any) {
+    console.error('Error loading encryption findings:', error)
+  }
+}
+
+// Load encryption recommendations (AI)
+const loadEncryptionRecommendations = async () => {
+  if (!accountId) return
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/security/encryption/recommendations/list/${accountId}/`, {
+      headers: getAuthHeaders()
+    })
+    
+    if (!response.ok) throw new Error('Failed to load encryption recommendations')
+    
+    const data = await response.json()
+    
+    if (data.success) {
+      setEncryptionRecommendations(data.recommendations || [])
+    }
+  } catch (error: any) {
+    console.error('Error loading encryption recommendations:', error)
+  }
+}
+
+// Scan encryption status
+const scanEncryptionStatus = async (forceRefresh = false) => {
+  if (!accountId) {
+    setEncryptionStatus("❌ Please select an AWS account first")
+    return
+  }
+  
+  setEncryptionScanning(true)
+  setEncryptionStatus(forceRefresh ? "🔄 Scanning encryption status..." : "📦 Loading cached results...")
+  
+  try {
+    const url = `${API_BASE_URL}/api/security/encryption/scan/${accountId}/?force_refresh=${forceRefresh}`
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    })
+    
+    if (!response.ok) throw new Error('Failed to scan encryption status')
+    
+    const data = await response.json()
+    
+    if (data.success) {
+      setEncryptionSummary({
+        total_resources: data.total_resources,
+        encrypted_resources: data.encrypted_resources,
+        unencrypted_resources: data.unencrypted_resources,
+        encryption_coverage: data.encryption_coverage,
+        critical_count: data.critical_count,
+        high_count: data.high_count,
+        medium_count: data.medium_count,
+        low_count: data.low_count
+      })
+      setEncryptionCached(data.cached || false)
+      setEncryptionStatus(`✅ Scan complete - ${data.encryption_coverage}% encryption coverage`)
+      
+      // Refresh findings and recommendations
+      await loadEncryptionFindings()
+      await loadEncryptionRecommendations()
+    } else if (data.error) {
+      throw new Error(data.error)
+    }
+  } catch (error: any) {
+    console.error('Scan error:', error)
+    setEncryptionStatus(`❌ ${error.message}`)
+  } finally {
+    setEncryptionScanning(false)
+    setTimeout(() => setEncryptionStatus(''), 4000)
+  }
+}
+
+// Generate AI recommendations
+const generateEncryptionRecommendations = async () => {
+  if (!accountId) return
+  
+  setEncryptionStatus("🤖 Generating AI recommendations...")
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/security/encryption/recommendations/generate/${accountId}/`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    })
+    
+    if (!response.ok) throw new Error('Failed to generate recommendations')
+    
+    const data = await response.json()
+    
+    if (data.success) {
+      await loadEncryptionRecommendations()
+      setEncryptionStatus(`✅ Generated ${data.recommendations_count} AI recommendations`)
+    }
+  } catch (error: any) {
+    console.error('Error generating recommendations:', error)
+    setEncryptionStatus(`❌ ${error.message}`)
+  } finally {
+    setTimeout(() => setEncryptionStatus(''), 3000)
+  }
+}
+
+// Execute one-click encryption action
+const executeEncryptionAction = async (resource: any) => {
+  setActionInProgress(true)
+  setActionResult(null)
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/security/encryption/action/create/${accountId}/`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        resource_type: resource.resource_type,
+        resource_id: resource.resource_id,
+        resource_name: resource.resource_name,
+        region: resource.region,
+        action_type: resource.one_click_action_type || 'enable_bucket_encryption',
+        action_params: {
+          kms_key_id: resource.recommended_kms_key || null
+        }
+      })
+    })
+    
+    if (!response.ok) throw new Error('Failed to start encryption action')
+    
+    const data = await response.json()
+    
+    if (data.success) {
+      setActionResult({
+        success: true,
+        message: data.message || 'Encryption action started successfully',
+        action_id: data.action_id,
+        requires_migration: data.requires_migration || false,
+        migration_steps: data.migration_steps || []
+      })
+      
+      // Refresh findings after a delay
+      setTimeout(() => {
+        loadEncryptionFindings()
+        loadEncryptionSummary()
+      }, 5000)
+    } else {
+      throw new Error(data.error || 'Action failed')
+    }
+  } catch (error: any) {
+    setActionResult({
+      success: false,
+      message: error.message
+    })
+  } finally {
+    setActionInProgress(false)
+  }
+}
+
+// Clear encryption cache
+const clearEncryptionCache = async () => {
+  if (!accountId) return
+  
+  if (!window.confirm('⚠️ Are you sure you want to clear all encryption cache? You will need to scan again.')) return
+  
+  setEncryptionStatus('🗑️ Clearing cache...')
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/security/encryption/clear/${accountId}/`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+    
+    if (!response.ok) throw new Error('Failed to clear cache')
+    
+    const data = await response.json()
+    setEncryptionSummary(null)
+    setEncryptionFindings([])
+    setEncryptionRecommendations([])
+    setEncryptionStatus(`✅ ${data.message}`)
+  } catch (error: any) {
+    setEncryptionStatus(`❌ ${error.message}`)
+  } finally {
+    setTimeout(() => setEncryptionStatus(''), 3000)
+  }
+}
+
+// Helper functions for encryption
+const getEncryptionSeverityColor = (severity: string) => {
+  switch (severity) {
+    case 'CRITICAL': return 'bg-red-100 dark:bg-red-950/30 text-red-700 border-red-500'
+    case 'HIGH': return 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 border-orange-500'
+    case 'MEDIUM': return 'bg-yellow-100 dark:bg-yellow-950/30 text-yellow-700 border-yellow-500'
+    case 'LOW': return 'bg-blue-100 dark:bg-blue-950/30 text-blue-700 border-blue-500'
+    default: return 'bg-gray-100 dark:bg-gray-800 text-gray-700'
+  }
+}
+
+const getEncryptionScoreColor = (score: number) => {
+  if (score >= 80) return 'text-green-600'
+  if (score >= 60) return 'text-yellow-600'
+  if (score >= 40) return 'text-orange-600'
+  return 'text-red-600'
+}
+
+const getResourceIcon = (resourceType: string) => {
+  const icons: Record<string, React.ReactNode> = {
+    'ec2_volume': <HardDrive className="w-5 h-5" />,
+    'ebs_snapshot': <Copy className="w-5 h-5" />,
+    'rds': <Database className="w-5 h-5" />,
+    's3_bucket': <HardDrive className="w-5 h-5" />,
+    'dynamodb_table': <Database className="w-5 h-5" />,
+    'lambda_function': <Zap className="w-5 h-5" />,
+    'sqs_queue': <MessageSquare className="w-5 h-5" />,
+    'sns_topic': <Bell className="w-5 h-5" />,
+    'efs_filesystem': <Server className="w-5 h-5" />,
+    'elasticache_cluster': <Zap className="w-5 h-5" />,
+    'secretsmanager_secret': <Key className="w-5 h-5" />,
+  }
+  return icons[resourceType] || <Shield className="w-5 h-5" />
+}
+
+const filteredEncryptionFindings = () => {
+  let findings = [...encryptionFindings]
+  
+  if (encryptionFilterSeverity !== "all") {
+    findings = findings.filter(f => f.severity === encryptionFilterSeverity)
+  }
+  
+  if (encryptionSearchQuery) {
+    const query = encryptionSearchQuery.toLowerCase()
+    findings = findings.filter(f => 
+      f.resource_name.toLowerCase().includes(query) ||
+      f.resource_id.toLowerCase().includes(query) ||
+      f.resource_type_display.toLowerCase().includes(query)
+    )
+  }
+  
+  return findings
+}
+
+const getResourceRecommendation = (resourceId: string) => {
+  return encryptionRecommendations.find(r => r.resource_id === resourceId)
+}
   // Scan public exposures (POST request)
+
+  // ============================================================
+// SECURITY GROUP ANALYZER FUNCTIONS
+// ============================================================
+
+// Load cached security groups
+const loadSecurityGroups = async () => {
+  if (!accountId) return
+  
+  setSgLoading(true)
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/security/security-groups/list/${accountId}/`, {
+      headers: getAuthHeaders()
+    })
+    
+    if (!response.ok) throw new Error('Failed to load security groups')
+    
+    const data = await response.json()
+    
+    if (data.success) {
+      setSecurityGroups(data.results || [])
+      setSgCached(data.cached || false)
+    }
+  } catch (error: any) {
+    console.error('Error loading:', error)
+  } finally {
+    setSgLoading(false)
+  }
+}
+
+// Scan security groups
+const scanSecurityGroups = async (forceRefresh = false) => {
+  if (!accountId) {
+    setSgStatus("❌ Please select an AWS account first")
+    return
+  }
+  
+  setSgScanning(true)
+  setSgStatus(forceRefresh ? "🔄 Scanning security groups..." : "📦 Loading cached results...")
+  
+  try {
+    const url = `${API_BASE_URL}/api/security/security-groups/scan/${accountId}/?force_refresh=${forceRefresh}`
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    })
+    
+    if (!response.ok) throw new Error('Failed to scan security groups')
+    
+    const data = await response.json()
+    
+    if (data.success) {
+      setSecurityGroups(data.results || [])
+      setSgCached(data.cached || false)
+      setSgStatus(`✅ Found ${data.total_security_groups} security groups`)
+    } else if (data.error) {
+      throw new Error(data.error)
+    }
+  } catch (error: any) {
+    console.error('Scan error:', error)
+    setSgStatus(`❌ ${error.message}`)
+  } finally {
+    setSgScanning(false)
+    setTimeout(() => setSgStatus(''), 4000)
+  }
+}
+
+// Load security group detail
+const loadSecurityGroupDetail = async (sgId: string) => {
+  if (!accountId) return
+  
+  setSgLoading(true)
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/security/security-groups/detail/${accountId}/${sgId}/`, {
+      headers: getAuthHeaders()
+    })
+    
+    if (!response.ok) throw new Error('Failed to load security group detail')
+    
+    const data = await response.json()
+    
+    if (data.success) {
+      setSelectedSecurityGroup(data.analysis)
+    }
+  } catch (error: any) {
+    console.error('Error loading detail:', error)
+  } finally {
+    setSgLoading(false)
+  }
+}
+
+// Clear security group cache
+const clearSecurityGroupsCache = async () => {
+  if (!accountId) return
+  
+  if (!window.confirm('⚠️ Are you sure you want to clear all security group cache? You will need to scan again.')) return
+  
+  setSgStatus('🗑️ Clearing cache...')
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/security/security-groups/clear/${accountId}/`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+    
+    if (!response.ok) throw new Error('Failed to clear cache')
+    
+    const data = await response.json()
+    setSecurityGroups([])
+    setSelectedSecurityGroup(null)
+    setSgStatus(`✅ ${data.message}`)
+  } catch (error: any) {
+    setSgStatus(`❌ ${error.message}`)
+  } finally {
+    setTimeout(() => setSgStatus(''), 3000)
+  }
+}
+
+// Helper functions for security groups
+const getSgSeverityColor = (severity: string) => {
+  switch (severity) {
+    case 'CRITICAL': return 'bg-red-100 dark:bg-red-950/30 text-red-700'
+    case 'HIGH': return 'bg-orange-100 dark:bg-orange-950/30 text-orange-700'
+    case 'MEDIUM': return 'bg-yellow-100 dark:bg-yellow-950/30 text-yellow-700'
+    case 'LOW': return 'bg-blue-100 dark:bg-blue-950/30 text-blue-700'
+    default: return 'bg-gray-100 dark:bg-gray-800 text-gray-700'
+  }
+}
+
+const getSgHealthScoreColor = (score: number) => {
+  if (score >= 80) return 'text-green-600'
+  if (score >= 60) return 'text-yellow-600'
+  if (score >= 40) return 'text-orange-600'
+  return 'text-red-600'
+}
+
+const getSgHealthScoreBg = (score: number) => {
+  if (score >= 80) return 'bg-green-100 dark:bg-green-950/30'
+  if (score >= 60) return 'bg-yellow-100 dark:bg-yellow-950/30'
+  if (score >= 40) return 'bg-orange-100 dark:bg-orange-950/30'
+  return 'bg-red-100 dark:bg-red-950/30'
+}
+
+const filteredSecurityGroups = () => {
+  let groups = [...securityGroups]
+  
+  if (sgSeverityFilter !== "all") {
+    groups = groups.filter(g => g.overall_severity === sgSeverityFilter)
+  }
+  
+  if (sgSearchQuery) {
+    const query = sgSearchQuery.toLowerCase()
+    groups = groups.filter(g => 
+      g.sg_name.toLowerCase().includes(query) ||
+      g.sg_id.toLowerCase().includes(query)
+    )
+  }
+  
+  return groups
+}
+
+const securityGroupsStats = {
+  total: securityGroups.length,
+  critical: securityGroups.filter(g => g.overall_severity === 'CRITICAL').length,
+  high: securityGroups.filter(g => g.overall_severity === 'HIGH').length,
+  medium: securityGroups.filter(g => g.overall_severity === 'MEDIUM').length,
+  low: securityGroups.filter(g => g.overall_severity === 'LOW').length,
+  orphaned: securityGroups.filter(g => g.is_orphaned).length,
+  duplicate: securityGroups.filter(g => g.is_duplicate).length,
+  avgHealth: securityGroups.length > 0 
+    ? Math.round(securityGroups.reduce((sum, g) => sum + g.health_score, 0) / securityGroups.length)
+    : 0
+}
+
+
   const scanPublicExposures = async (forceRefresh = false) => {
     if (!accountId) return
     
@@ -1064,9 +1578,850 @@ export const Security: React.FC = () => {
   }
 
   // Placeholder render functions for other sections
-  const renderSecurityGroups = () => <Card className="p-6"><p>Security Group Analyzer - Coming Soon</p></Card>
+// 4. SECURITY GROUP ANALYZER - RENDER FUNCTION
+const renderSecurityGroups = () => {
+  // If detail view is selected
+  if (selectedSecurityGroup) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-start">
+          <div>
+            <button
+              onClick={() => setSelectedSecurityGroup(null)}
+              className="text-sm text-primary hover:underline mb-2 flex items-center gap-1"
+            >
+              ← Back to Security Groups
+            </button>
+            <h2 className="text-2xl font-bold text-foreground">{selectedSecurityGroup.sg_name}</h2>
+            <p className="text-sm text-muted-foreground font-mono">{selectedSecurityGroup.sg_id}</p>
+            <p className="text-sm text-muted-foreground mt-1">{selectedSecurityGroup.sg_description || "No description"}</p>
+          </div>
+          <div className="text-right">
+            <div className={`w-20 h-20 rounded-full ${getSgHealthScoreBg(selectedSecurityGroup.health_score)} flex items-center justify-center mb-2 mx-auto`}>
+              <span className={`text-3xl font-bold ${getSgHealthScoreColor(selectedSecurityGroup.health_score)}`}>{selectedSecurityGroup.health_score}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Health Score</p>
+            <p className="text-xs text-muted-foreground mt-1">Risk: {selectedSecurityGroup.risk_score}</p>
+          </div>
+        </div>
+
+        {/* Section Tabs */}
+        <div className="flex gap-1 border-b flex-wrap">
+          {[
+            { id: "overview", label: "Overview", icon: <Shield className="w-4 h-4" /> },
+            { id: "risks", label: "Risk Findings", icon: <AlertTriangle className="w-4 h-4" />, count: selectedSecurityGroup.risk_findings?.length || 0 },
+            { id: "resources", label: "Attached Resources", icon: <Server className="w-4 h-4" />, count: selectedSecurityGroup.attached_resources?.length || 0 },
+            { id: "traffic", label: "Traffic Insights", icon: <Activity className="w-4 h-4" /> },
+            { id: "changes", label: "Change History", icon: <Clock className="w-4 h-4" />, count: selectedSecurityGroup.change_history?.length || 0 },
+            { id: "ai", label: "AI Recommendations", icon: <Brain className="w-4 h-4" /> }
+          ].map((section) => (
+            <button
+              key={section.id}
+              onClick={() => setSgExpandedSection(section.id)}
+              className={`px-4 py-2 text-sm font-medium transition-colors flex items-center gap-2 ${
+                sgExpandedSection === section.id
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {section.icon}
+              {section.label}
+              {section.count !== undefined && section.count > 0 && (
+                <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">{section.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Overview Section */}
+        {sgExpandedSection === "overview" && (
+          <div className="space-y-4">
+            <div className="flex gap-2 flex-wrap">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getSgSeverityColor(selectedSecurityGroup.overall_severity)}`}>
+                Overall: {selectedSecurityGroup.overall_severity}
+              </span>
+              {selectedSecurityGroup.unrestricted_inbound && (
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-950/30 text-red-700">
+                  🚨 Unrestricted Inbound
+                </span>
+              )}
+              {selectedSecurityGroup.unrestricted_outbound && (
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 dark:bg-yellow-950/30 text-yellow-700">
+                  ⚠️ Unrestricted Outbound
+                </span>
+              )}
+              {selectedSecurityGroup.is_orphaned && (
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-600">
+                  🗑️ Orphaned (No Resources)
+                </span>
+              )}
+              {selectedSecurityGroup.is_duplicate && (
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 dark:bg-purple-950/30 text-purple-700">
+                  🔄 Duplicate Configuration
+                </span>
+              )}
+            </div>
+
+            {/* Exposed Ports */}
+            {selectedSecurityGroup.exposed_ports?.length > 0 && (
+              <Card className="p-4">
+                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <Unlock className="w-5 h-5 text-red-500" />
+                  Exposed Ports
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {selectedSecurityGroup.exposed_ports.map((port: any, idx: number) => (
+                    <div key={idx} className={`px-3 py-2 rounded-lg border ${
+                      port.severity === 'CRITICAL' ? 'border-red-200 bg-red-50 dark:bg-red-950/20' :
+                      port.severity === 'HIGH' ? 'border-orange-200 bg-orange-50 dark:bg-orange-950/20' :
+                      'border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold">{port.port}</span>
+                        <span className="text-sm">{port.service}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          port.severity === 'CRITICAL' ? 'bg-red-200 text-red-800' :
+                          port.severity === 'HIGH' ? 'bg-orange-200 text-orange-800' :
+                          'bg-yellow-200 text-yellow-800'
+                        }`}>{port.severity}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Info Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="p-4">
+                <h3 className="font-semibold text-foreground mb-3">Resource Information</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">VPC ID:</span><code className="font-mono">{selectedSecurityGroup.vpc_id}</code></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Region:</span><span>{selectedSecurityGroup.region}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Attached Resources:</span><span className="font-semibold">{selectedSecurityGroup.attached_resources?.length || 0}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Last Analyzed:</span><span>{new Date(selectedSecurityGroup.last_analyzed_at).toLocaleString()}</span></div>
+                </div>
+              </Card>
+
+              <Card className="p-4">
+                <h3 className="font-semibold text-foreground mb-3">Open World Rules</h3>
+                {selectedSecurityGroup.open_world_rules?.length === 0 ? (
+                  <p className="text-sm text-green-600">✅ No open world rules (0.0.0.0/0)</p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedSecurityGroup.open_world_rules.slice(0, 5).map((rule: any, idx: number) => (
+                      <div key={idx} className="text-sm p-2 bg-red-50 dark:bg-red-950/20 rounded">
+                        <span className="font-mono">{rule.protocol}:{rule.from_port}-{rule.to_port}</span>
+                        <span className="text-muted-foreground ml-2">from {rule.cidr}</span>
+                        <span className="text-xs text-red-600 ml-2">⚠️ Open to internet</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Risk Findings Section */}
+        {sgExpandedSection === "risks" && (
+          <div className="space-y-4">
+            {selectedSecurityGroup.risk_findings?.length === 0 ? (
+              <Card className="p-8 text-center">
+                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold">No Risk Findings!</h3>
+                <p className="text-muted-foreground">This security group is well configured.</p>
+              </Card>
+            ) : (
+              selectedSecurityGroup.risk_findings.map((finding: any, idx: number) => (
+                <Card key={idx} className={`p-5 border-l-4 ${
+                  finding.severity === 'CRITICAL' ? 'border-l-red-500' :
+                  finding.severity === 'HIGH' ? 'border-l-orange-500' :
+                  finding.severity === 'MEDIUM' ? 'border-l-yellow-500' :
+                  'border-l-blue-500'
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      finding.severity === 'CRITICAL' ? 'bg-red-100 dark:bg-red-900/30' :
+                      finding.severity === 'HIGH' ? 'bg-orange-100 dark:bg-orange-900/30' :
+                      finding.severity === 'MEDIUM' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
+                      'bg-blue-100 dark:bg-blue-900/30'
+                    }`}>
+                      <AlertTriangle className={`w-4 h-4 ${
+                        finding.severity === 'CRITICAL' ? 'text-red-600' :
+                        finding.severity === 'HIGH' ? 'text-orange-600' :
+                        finding.severity === 'MEDIUM' ? 'text-yellow-600' :
+                        'text-blue-600'
+                      }`} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h4 className="font-semibold text-foreground">{finding.title}</h4>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          finding.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' :
+                          finding.severity === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+                          finding.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-blue-100 text-blue-700'
+                        }`}>{finding.severity}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-3">{finding.description}</p>
+                      <div className="p-3 bg-primary/5 rounded-lg">
+                        <p className="text-sm font-medium text-primary mb-1">🔧 Recommendation</p>
+                        <p className="text-sm text-muted-foreground">{finding.recommendation}</p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Attached Resources Section */}
+        {sgExpandedSection === "resources" && (
+          <div className="space-y-4">
+            {selectedSecurityGroup.attached_resources?.length === 0 ? (
+              <Card className="p-8 text-center">
+                <Link2 className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                <h3 className="text-lg font-semibold">No Attached Resources</h3>
+                <p className="text-muted-foreground">This security group is orphaned.</p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {selectedSecurityGroup.attached_resources.map((resource: any, idx: number) => (
+                  <Card key={idx} className="p-4">
+                    <div className="flex items-start gap-3">
+                      {resource.resource_type === 'EC2' && <Cpu className="w-5 h-5 text-blue-500" />}
+                      {resource.resource_type === 'Load Balancer' && <Network className="w-5 h-5 text-green-500" />}
+                      {resource.resource_type === 'RDS' && <Database className="w-5 h-5 text-purple-500" />}
+                      <div className="flex-1">
+                        <p className="font-semibold text-foreground">{resource.resource_name}</p>
+                        <p className="text-xs text-muted-foreground">{resource.resource_type}</p>
+                        <div className="flex gap-2 mt-2 text-xs">
+                          <span className="text-muted-foreground">{resource.region}</span>
+                          <span className={`px-1.5 py-0.5 rounded ${
+                            resource.status === 'running' || resource.status === 'active' 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>{resource.status}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Traffic Insights Section */}
+        {sgExpandedSection === "traffic" && (
+          <div className="space-y-4">
+            <Card className="p-4">
+              <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Most Used Ports
+              </h3>
+              <div className="space-y-3">
+                {selectedSecurityGroup.traffic_insights?.most_used_ports?.map((port: any, idx: number) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <div className="w-16 font-mono font-bold">{port.port}</div>
+                    <div className="flex-1">
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${port.percentage}%` }} />
+                      </div>
+                    </div>
+                    <div className="w-24 text-right">
+                      <span className="text-sm capitalize">{port.usage}</span>
+                      {port.trend === 'increasing' && <TrendingUp className="w-3 h-3 text-green-500 inline ml-1" />}
+                      {port.trend === 'decreasing' && <TrendingDown className="w-3 h-3 text-red-500 inline ml-1" />}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="p-4">
+                <h3 className="font-semibold text-foreground mb-3">Inbound Traffic Trend</h3>
+                <div className="flex items-end gap-1 h-32">
+                  {selectedSecurityGroup.traffic_insights?.inbound_trend?.last_7_days?.map((value: number, idx: number) => (
+                    <div key={idx} className="flex-1 flex flex-col items-center">
+                      <div className="w-full bg-primary/20 rounded-t" style={{ height: `${(value / 200) * 100}px` }}>
+                        <div className="w-full bg-primary rounded-t" style={{ height: `${(value / 200) * 100}px` }} />
+                      </div>
+                      <span className="text-xs mt-1">Day {idx + 1}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-sm text-center mt-3">
+                  Trend: <span className={selectedSecurityGroup.traffic_insights?.inbound_trend?.trend === 'increasing' ? 'text-red-500' : 'text-green-500'}>
+                    {selectedSecurityGroup.traffic_insights?.inbound_trend?.trend} ({selectedSecurityGroup.traffic_insights?.inbound_trend?.percentage_change}%)
+                  </span>
+                </p>
+              </Card>
+
+              <Card className="p-4">
+                <h3 className="font-semibold text-foreground mb-3">Top Source IPs</h3>
+                <div className="space-y-2">
+                  {selectedSecurityGroup.traffic_insights?.top_source_ips?.map((ip: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center">
+                      <code className="text-sm font-mono">{ip.ip_range}</code>
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${ip.requests_percentage}%` }} />
+                        </div>
+                        <span className="text-xs w-12">{ip.requests_percentage}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Change History Section */}
+        {sgExpandedSection === "changes" && (
+          <div className="space-y-3">
+            {selectedSecurityGroup.change_history?.length === 0 ? (
+              <Card className="p-8 text-center">
+                <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                <h3 className="text-lg font-semibold">No Change History</h3>
+                <p className="text-muted-foreground">No changes recorded for this security group.</p>
+              </Card>
+            ) : (
+              selectedSecurityGroup.change_history.map((change: any, idx: number) => (
+                <Card key={idx} className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        {change.change_type === 'rule_added' && <Plus className="w-4 h-4 text-green-500" />}
+                        {change.change_type === 'rule_removed' && <Minus className="w-4 h-4 text-red-500" />}
+                        {change.change_type === 'rule_modified' && <RefreshCw className="w-4 h-4 text-yellow-500" />}
+                        <span className="font-semibold text-foreground">{change.description}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        By <span className="font-medium">{change.changed_by}</span> • {new Date(change.changed_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* AI Recommendations Section */}
+        {sgExpandedSection === "ai" && (
+          <Card className="p-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                <Brain className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground">AI Security Recommendations</h3>
+            </div>
+            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+              {selectedSecurityGroup.ai_recommendation}
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(selectedSecurityGroup.ai_recommendation)
+                setSgStatus('✅ Analysis copied to clipboard!')
+                setTimeout(() => setSgStatus(''), 2000)
+              }}
+              className="mt-4 flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <Copy className="w-4 h-4" />
+              Copy Analysis
+            </button>
+          </Card>
+        )}
+      </div>
+    )
+  }
+
+  // Main list view
+  return (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">Security Group Analyzer</h3>
+            <p className="text-sm text-muted-foreground">
+              Deep analysis of security group rules, attached resources, traffic patterns, and AI-powered recommendations
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={clearSecurityGroupsCache}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear Cache
+            </button>
+            <button
+              onClick={() => scanSecurityGroups(false)}
+              disabled={sgScanning}
+              className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-lg hover:bg-secondary/80"
+            >
+              <Database className="w-4 h-4" />
+              Load Cached
+            </button>
+            <button
+              onClick={() => scanSecurityGroups(true)}
+              disabled={sgScanning}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
+            >
+              {sgScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {sgScanning ? 'Scanning...' : 'Scan Security Groups'}
+            </button>
+          </div>
+        </div>
+
+        {sgCached && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg text-sm text-blue-700">
+            <Database className="w-4 h-4 inline mr-2" />
+            Results from cache. Click "Scan Security Groups" for fresh data.
+          </div>
+        )}
+
+        {sgStatus && (
+          <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 text-sm">
+            {sgStatus}
+          </div>
+        )}
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+          <Card className="p-3 text-center"><Shield className="w-5 h-5 mx-auto text-primary mb-1" /><p className="text-2xl font-bold">{securityGroupsStats.total}</p><p className="text-xs text-muted-foreground">Total Groups</p></Card>
+          <Card className="p-3 text-center bg-red-50 dark:bg-red-950/20"><AlertTriangle className="w-5 h-5 mx-auto text-red-600 mb-1" /><p className="text-2xl font-bold text-red-600">{securityGroupsStats.critical}</p><p className="text-xs text-muted-foreground">Critical</p></Card>
+          <Card className="p-3 text-center bg-orange-50 dark:bg-orange-950/20"><AlertTriangle className="w-5 h-5 mx-auto text-orange-600 mb-1" /><p className="text-2xl font-bold text-orange-600">{securityGroupsStats.high}</p><p className="text-xs text-muted-foreground">High</p></Card>
+          <Card className="p-3 text-center bg-yellow-50 dark:bg-yellow-950/20"><AlertTriangle className="w-5 h-5 mx-auto text-yellow-600 mb-1" /><p className="text-2xl font-bold text-yellow-600">{securityGroupsStats.medium}</p><p className="text-xs text-muted-foreground">Medium</p></Card>
+          <Card className="p-3 text-center bg-blue-50 dark:bg-blue-950/20"><Info className="w-5 h-5 mx-auto text-blue-600 mb-1" /><p className="text-2xl font-bold text-blue-600">{securityGroupsStats.low}</p><p className="text-xs text-muted-foreground">Low</p></Card>
+          <Card className="p-3 text-center"><Link2 className="w-5 h-5 mx-auto text-purple-500 mb-1" /><p className="text-2xl font-bold">{securityGroupsStats.orphaned}</p><p className="text-xs text-muted-foreground">Orphaned</p></Card>
+          <Card className="p-3 text-center bg-green-50 dark:bg-green-950/20"><div className={`w-10 h-10 rounded-full ${getSgHealthScoreBg(securityGroupsStats.avgHealth)} flex items-center justify-center mx-auto mb-1`}><span className={`text-lg font-bold ${getSgHealthScoreColor(securityGroupsStats.avgHealth)}`}>{securityGroupsStats.avgHealth}</span></div><p className="text-xs text-muted-foreground">Avg Health</p></Card>
+        </div>
+
+        {/* Filter Bar */}
+        <div className="flex flex-wrap gap-3 items-center justify-between mb-6">
+          <div className="flex gap-2 flex-wrap">
+            {["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"].map((sev) => (
+              <button key={sev} onClick={() => setSgSeverityFilter(sev)} className={`px-3 py-1 text-sm rounded-full transition-colors ${sgSeverityFilter === sev ? sev === "CRITICAL" ? "bg-red-500 text-white" : sev === "HIGH" ? "bg-orange-500 text-white" : sev === "MEDIUM" ? "bg-yellow-500 text-white" : sev === "LOW" ? "bg-blue-500 text-white" : "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>{sev === "all" ? "All" : sev}</button>
+            ))}
+          </div>
+          <div className="relative"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" /><input type="text" placeholder="Search security groups..." value={sgSearchQuery} onChange={(e) => setSgSearchQuery(e.target.value)} className="pl-9 pr-4 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 w-64" /></div>
+        </div>
+
+        {/* Security Groups List */}
+        {sgLoading && securityGroups.length === 0 ? (
+          <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+        ) : filteredSecurityGroups().length === 0 ? (
+          <Card className="p-12 text-center"><Shield className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" /><h3 className="text-xl font-semibold text-foreground mb-2">No Security Groups Found</h3><p className="text-muted-foreground">{sgSearchQuery || sgSeverityFilter !== "all" ? "Try adjusting your filters" : "Click 'Scan Security Groups' to analyze"}</p></Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            {filteredSecurityGroups().map((sg) => (
+              <Card key={sg.sg_id} className="p-5 hover:shadow-lg transition-all cursor-pointer border-l-4" style={{ borderLeftColor: sg.overall_severity === 'CRITICAL' ? '#ef4444' : sg.overall_severity === 'HIGH' ? '#f97316' : sg.overall_severity === 'MEDIUM' ? '#eab308' : '#3b82f6' }} onClick={() => loadSecurityGroupDetail(sg.sg_id)}>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap"><h4 className="font-semibold text-foreground text-lg">{sg.sg_name}</h4><span className={`text-xs px-2 py-0.5 rounded-full ${getSgSeverityColor(sg.overall_severity)}`}>{sg.overall_severity}</span>{sg.is_orphaned && <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600">🗑️ Orphaned</span>}{sg.is_duplicate && <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/30 text-purple-600">🔄 Duplicate</span>}</div>
+                    <p className="text-sm text-muted-foreground font-mono mb-3">{sg.sg_id}</p>
+                    <div className="flex flex-wrap gap-4 text-sm"><div className="flex items-center gap-1 text-muted-foreground"><Server className="w-4 h-4" /><span>{sg.attached_resources_count} resources</span></div><div className="flex items-center gap-1 text-muted-foreground"><AlertTriangle className="w-4 h-4" /><span>{sg.risk_findings_count} risks</span></div><div className="flex items-center gap-1 text-muted-foreground"><Clock className="w-4 h-4" /><span>Analyzed: {new Date(sg.last_analyzed_at).toLocaleDateString()}</span></div></div>
+                  </div>
+                  <div className="text-right"><div className={`w-16 h-16 rounded-full ${getSgHealthScoreBg(sg.health_score)} flex items-center justify-center mb-2`}><span className={`text-2xl font-bold ${getSgHealthScoreColor(sg.health_score)}`}>{sg.health_score}</span></div><p className="text-xs text-muted-foreground">Health Score</p><ChevronRight className="w-5 h-5 text-muted-foreground mt-2 ml-auto" /></div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  )
+}
+ 
+// 5. ENCRYPTION CHECKER - RENDER FUNCTION
+const renderEncryption = () => {
+  const stats = encryptionSummary || {
+    total_resources: 0,
+    encrypted_resources: 0,
+    unencrypted_resources: 0,
+    encryption_coverage: 0,
+    critical_count: 0,
+    high_count: 0,
+    medium_count: 0,
+    low_count: 0
+  }
+
+  const filteredFindings = filteredEncryptionFindings()
+
+  // Action Modal Component
+  const EncryptionActionModal = () => {
+    if (!showActionModal || !selectedResource) return null
+    
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <Card className="max-w-md w-full">
+          <div className="p-6 border-b border-border flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-foreground">Enable Encryption</h3>
+            <button onClick={() => {
+              setShowActionModal(false)
+              setSelectedResource(null)
+              setActionResult(null)
+            }} className="p-1 hover:bg-muted rounded-lg">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="p-6">
+            {actionResult ? (
+              <div className="space-y-4">
+                <div className={`p-4 rounded-lg ${actionResult.success ? 'bg-green-50 dark:bg-green-950/20 border border-green-200' : 'bg-red-50 dark:bg-red-950/20 border border-red-200'}`}>
+                  <div className="flex items-center gap-2">
+                    {actionResult.success ? <CheckCircle className="w-5 h-5 text-green-600" /> : <AlertTriangle className="w-5 h-5 text-red-600" />}
+                    <span className={actionResult.success ? 'text-green-700' : 'text-red-700'}>{actionResult.message}</span>
+                  </div>
+                </div>
+                
+                {actionResult.requires_migration && actionResult.migration_steps?.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-semibold text-foreground mb-2">Migration Steps Required:</h4>
+                    <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
+                      {actionResult.migration_steps.map((step: string, idx: number) => (
+                        <li key={idx}>{step}</li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+                
+                <button
+                  onClick={() => {
+                    setShowActionModal(false)
+                    setSelectedResource(null)
+                    setActionResult(null)
+                  }}
+                  className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                  {getResourceIcon(selectedResource.resource_type)}
+                  <div>
+                    <p className="font-medium text-foreground">{selectedResource.resource_name}</p>
+                    <p className="text-xs text-muted-foreground">{selectedResource.resource_type_display}</p>
+                  </div>
+                </div>
+                
+                <p className="text-sm text-muted-foreground">
+                  {selectedResource.fix_recommendation}
+                </p>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowActionModal(false)
+                      setSelectedResource(null)
+                    }}
+                    className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => executeEncryptionAction(selectedResource)}
+                    disabled={actionInProgress}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {actionInProgress ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Enable Encryption'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Action Modal */}
+      <EncryptionActionModal />
+
+      {/* Header Card */}
+      <Card className="p-6">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">Encryption Coverage Dashboard</h3>
+            <p className="text-sm text-muted-foreground">
+              Track encryption status across all AWS resources and get AI-powered recommendations
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={clearEncryptionCache}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear Cache
+            </button>
+            <button
+              onClick={() => scanEncryptionStatus(false)}
+              disabled={encryptionScanning}
+              className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-lg hover:bg-secondary/80"
+            >
+              <Database className="w-4 h-4" />
+              Load Cached
+            </button>
+            <button
+              onClick={() => scanEncryptionStatus(true)}
+              disabled={encryptionScanning}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
+            >
+              {encryptionScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {encryptionScanning ? 'Scanning...' : 'Scan Encryption'}
+            </button>
+          </div>
+        </div>
+
+        {encryptionCached && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg text-sm text-blue-700">
+            <Database className="w-4 h-4 inline mr-2" />
+            Results from cache. Click "Scan Encryption" for fresh data.
+          </div>
+        )}
+
+        {encryptionStatus && (
+          <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 text-sm">
+            {encryptionStatus}
+          </div>
+        )}
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+          <Card className="p-3 text-center">
+            <Lock className="w-5 h-5 mx-auto text-primary mb-1" />
+            <p className="text-2xl font-bold">{stats.total_resources}</p>
+            <p className="text-xs text-muted-foreground">Total Resources</p>
+          </Card>
+          <Card className="p-3 text-center bg-green-50 dark:bg-green-950/20">
+            <Shield className="w-5 h-5 mx-auto text-green-600 mb-1" />
+            <p className="text-2xl font-bold text-green-600">{stats.encrypted_resources}</p>
+            <p className="text-xs text-muted-foreground">Encrypted</p>
+          </Card>
+          <Card className="p-3 text-center bg-red-50 dark:bg-red-950/20">
+            <Unlock className="w-5 h-5 mx-auto text-red-600 mb-1" />
+            <p className="text-2xl font-bold text-red-600">{stats.unencrypted_resources}</p>
+            <p className="text-xs text-muted-foreground">Unencrypted</p>
+          </Card>
+          <Card className="p-3 text-center bg-primary/10">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-1 ${stats.encryption_coverage >= 80 ? 'bg-green-100' : stats.encryption_coverage >= 60 ? 'bg-yellow-100' : 'bg-red-100'}`}>
+              <span className={`text-xl font-bold ${getEncryptionScoreColor(stats.encryption_coverage)}`}>{stats.encryption_coverage}%</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Coverage</p>
+          </Card>
+          <Card className="p-3 text-center bg-red-50 dark:bg-red-950/20">
+            <AlertTriangle className="w-5 h-5 mx-auto text-red-600 mb-1" />
+            <p className="text-2xl font-bold text-red-600">{stats.critical_count}</p>
+            <p className="text-xs text-muted-foreground">Critical</p>
+          </Card>
+          <Card className="p-3 text-center bg-orange-50 dark:bg-orange-950/20">
+            <AlertTriangle className="w-5 h-5 mx-auto text-orange-600 mb-1" />
+            <p className="text-2xl font-bold text-orange-600">{stats.high_count}</p>
+            <p className="text-xs text-muted-foreground">High</p>
+          </Card>
+          <Card className="p-3 text-center">
+            <Brain className="w-5 h-5 mx-auto text-purple-500 mb-1" />
+            <p className="text-2xl font-bold">{encryptionRecommendations.length}</p>
+            <p className="text-xs text-muted-foreground">AI Recs</p>
+          </Card>
+        </div>
+
+        {/* Generate AI Recommendations Button */}
+        <div className="mb-6 flex justify-end">
+          <button
+            onClick={generateEncryptionRecommendations}
+            disabled={encryptionFindings.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50"
+          >
+            <Sparkles className="w-4 h-4" />
+            Generate AI Recommendations
+          </button>
+        </div>
+
+        {/* Filter Bar */}
+        <div className="flex flex-wrap gap-3 items-center justify-between mb-6">
+          <div className="flex gap-2 flex-wrap">
+            {["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"].map((sev) => (
+              <button
+                key={sev}
+                onClick={() => setEncryptionFilterSeverity(sev)}
+                className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                  encryptionFilterSeverity === sev
+                    ? sev === "CRITICAL" ? "bg-red-500 text-white" :
+                      sev === "HIGH" ? "bg-orange-500 text-white" :
+                      sev === "MEDIUM" ? "bg-yellow-500 text-white" :
+                      sev === "LOW" ? "bg-blue-500 text-white" :
+                      "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                {sev === "all" ? "All" : sev}
+              </button>
+            ))}
+          </div>
+          
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search resources..."
+              value={encryptionSearchQuery}
+              onChange={(e) => setEncryptionSearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 w-64"
+            />
+          </div>
+        </div>
+
+        {/* Findings List */}
+        {encryptionLoading && encryptionFindings.length === 0 ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : filteredFindings.length === 0 && encryptionFindings.length > 0 ? (
+          <Card className="p-12 text-center">
+            <ShieldCheck className="w-16 h-16 text-green-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-foreground mb-2">No matching findings</h3>
+            <p className="text-muted-foreground">Try changing your filter or search query</p>
+          </Card>
+        ) : filteredFindings.length === 0 ? (
+          <Card className="p-12 text-center">
+            <Shield className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+            <h3 className="text-xl font-semibold text-foreground mb-2">No Encryption Findings</h3>
+            <p className="text-muted-foreground">
+              {encryptionSummary?.total_resources === 0 
+                ? "Click 'Scan Encryption' to analyze your resources" 
+                : "All your resources are encrypted! Great security practice! 🎉"}
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {filteredFindings.map((finding) => {
+              const recommendation = getResourceRecommendation(finding.resource_id)
+              return (
+                <Card key={finding.id} className={`p-5 border-l-4 ${getEncryptionSeverityColor(finding.severity)}`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3 flex-1">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        finding.severity === 'CRITICAL' ? 'bg-red-100 dark:bg-red-900/30' :
+                        finding.severity === 'HIGH' ? 'bg-orange-100 dark:bg-orange-900/30' :
+                        finding.severity === 'MEDIUM' ? 'bg-yellow-100 dark:bg-yellow-900/30' :
+                        'bg-blue-100 dark:bg-blue-900/30'
+                      }`}>
+                        {getResourceIcon(finding.resource_type)}
+                      </div>
+                      
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <h4 className="font-semibold text-foreground">{finding.resource_name}</h4>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${getEncryptionSeverityColor(finding.severity)}`}>
+                            {finding.severity}
+                          </span>
+                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                            {finding.resource_type_display}
+                          </span>
+                          {finding.is_encrypted ? (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                              🔒 Encrypted
+                            </span>
+                          ) : (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                              🔓 Unencrypted
+                            </span>
+                          )}
+                        </div>
+                        
+                        <p className="text-sm text-muted-foreground mb-2">{finding.business_risk}</p>
+                        
+                        {/* Resource Details */}
+                        <div className="flex flex-wrap gap-2 text-xs mb-3">
+                          <span className="bg-muted px-2 py-1 rounded font-mono">
+                            🆔 {finding.resource_id}
+                          </span>
+                          {finding.region && (
+                            <span className="bg-muted px-2 py-1 rounded">
+                              📍 {finding.region}
+                            </span>
+                          )}
+                          {finding.encryption_type && finding.encryption_type !== 'None' && (
+                            <span className="bg-muted px-2 py-1 rounded">
+                              🔐 {finding.encryption_type}
+                            </span>
+                          )}
+                          {finding.kms_key_id && (
+                            <span className="bg-muted px-2 py-1 rounded font-mono">
+                              🔑 {finding.kms_key_id.split('/').pop()}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* AI Recommendation */}
+                        {recommendation && (
+                          <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                            <div className="flex items-start gap-2">
+                              <Brain className="w-4 h-4 text-purple-500 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-purple-700 dark:text-purple-400">🤖 AI Recommendation</p>
+                                <p className="text-sm text-purple-700 dark:text-purple-400">{recommendation.recommendation_description}</p>
+                                <p className="text-xs text-purple-600 dark:text-purple-500 mt-1">
+                                  ⏱️ {recommendation.estimated_time} • {recommendation.difficulty} difficulty
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Fix Recommendation */}
+                        <div className="mt-3 p-3 bg-primary/5 rounded-lg">
+                          <p className="text-sm font-medium text-primary mb-1">🔧 Fix Recommendation</p>
+                          <p className="text-sm text-muted-foreground">{finding.fix_recommendation}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Difficulty: {finding.fix_difficulty} • Risk Score: {finding.risk_score}/100
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {!finding.is_encrypted && (
+                      <button
+                        onClick={() => {
+                          setSelectedResource({
+                            ...finding,
+                            one_click_action_type: recommendation?.one_click_action_type,
+                            recommended_kms_key: recommendation?.recommended_kms_key
+                          })
+                          setShowActionModal(true)
+                        }}
+                        className="ml-4 px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        Enable Encryption
+                      </button>
+                    )}
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
+  )
+}
+
   const renderCloudWatchLogs = () => <Card className="p-6"><p>CloudWatch & Logging Security - Coming Soon</p></Card>
-  const renderEncryption = () => <Card className="p-6"><p>Encryption Checker - Coming Soon</p></Card>
+  
   const renderCredentials = () => <Card className="p-6"><p>Key & Credential Risk - Coming Soon</p></Card>
   const renderAlerts = () => <Card className="p-6"><p>Real-Time Alerts - Coming Soon</p></Card>
   const renderAIAdvisor = () => <Card className="p-6"><p>AI Security Advisor - Coming Soon</p></Card>
