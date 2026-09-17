@@ -257,9 +257,14 @@ const CostAnalyticsProvider: React.FC = () => {
   const navigate = useNavigate()
   const [selectedMenu, setSelectedMenu] = useState<MenuItem>("overview")
 
-  const getAuthToken = () => {
-    return localStorage.getItem('token') || sessionStorage.getItem('token')
-  }
+const getAuthToken = () => {
+    return (
+        localStorage.getItem('token') ||       // Primary
+        localStorage.getItem('auth_token') ||  // Backup
+        sessionStorage.getItem('token') ||     // Session fallback
+        sessionStorage.getItem('auth_token')   // Session backup
+    )
+}
 
   const getAuthHeaders = () => {
     return {
