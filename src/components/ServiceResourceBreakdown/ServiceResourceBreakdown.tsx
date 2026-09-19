@@ -88,6 +88,33 @@ const ServiceResourceBreakdown: React.FC<ServiceResourceBreakdownProps> = ({
     }, [accountId, token, fetchBreakdown]);
 
     // ============================================================
+    // After an action (Fix / Schedule / Dismiss) — refresh from DB
+    // (NOT force_refresh; the backend has already persisted the change
+    //  and this call just re-reads the cached records — fast.)
+    // ============================================================
+    const handleActionComplete = useCallback(
+        async (_resourceId: string): Promise<void> => {
+            try {
+                const url = `${API_BASE}/aws/accounts/${accountId}/service-resource-breakdown/`;
+                const response = await axios.get<
+                    BreakdownResponse | BreakdownError
+                >(url, {
+                    headers: { Authorization: `Token ${token}` },
+                    timeout: 60000,
+                });
+
+                if (!('error' in response.data)) {
+                    setData(response.data);
+                }
+            } catch {
+                // Silent — the panel already showed feedback to the user.
+                // No need to surface a second toast.
+            }
+        },
+        [accountId, token]
+    );
+
+    // ============================================================
     // Initial fetch
     // ============================================================
     useEffect(() => {
@@ -259,6 +286,9 @@ const ServiceResourceBreakdown: React.FC<ServiceResourceBreakdownProps> = ({
                                         : resource.resource_id
                                 )
                             }
+                            accountId={accountId}
+                            token={token}
+                            onActionComplete={handleActionComplete}
                         />
                     ))}
                 </div>

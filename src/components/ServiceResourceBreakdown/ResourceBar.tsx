@@ -18,6 +18,9 @@ const ResourceBar: React.FC<ResourceBarProps> = ({
     resource,
     isExpanded,
     onToggle,
+    accountId,
+    token,
+    onActionComplete,
 }) => {
     const getStatusIcon = (status: ResourceStatus): string => {
         switch (status) {
@@ -137,7 +140,14 @@ const ResourceBar: React.FC<ResourceBarProps> = ({
                 </div>
             </div>
 
-            {isExpanded && <AIDetailPanel resource={resource} />}
+            {isExpanded && (
+                <AIDetailPanel
+                    resource={resource}
+                    accountId={accountId}
+                    token={token}
+                    onActionComplete={onActionComplete}
+                />
+            )}
         </div>
     );
 };

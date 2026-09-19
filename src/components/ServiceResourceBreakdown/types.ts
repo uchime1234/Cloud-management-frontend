@@ -19,6 +19,8 @@ export interface Resource {
     resource_name: string;
     resource_type: string;
     region: string;
+    service_name: string;
+    service_category?: string;
     status: ResourceStatus;
     on_since: string | null;
     last_checked: string | null;
@@ -80,8 +82,14 @@ export interface ResourceBarProps {
     resource: Resource;
     isExpanded: boolean;
     onToggle: () => void;
+    accountId: string | number;
+    token: string;
+    onActionComplete?: (resourceId: string) => void;
 }
 
 export interface AIDetailPanelProps {
     resource: Resource;
+    accountId: string | number;
+    token: string;
+    onActionComplete?: (resourceId: string) => void;
 }

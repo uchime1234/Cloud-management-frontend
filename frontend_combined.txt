@@ -1,6 +1,6 @@
 ====================================================================================================
 FRONTEND CODE - COMBINED OUTPUT
-Generated: 2026-09-17 10:55:24
+Generated: 2026-09-19 14:33:30
 Source: src
 ====================================================================================================
 
@@ -744,6 +744,71 @@ export default LandingPage;
 
 /// <reference types="vite/client" />
 
+
+====================================================================================================
+📁 FOLDER: api
+📄 FILE: axios.ts
+📌 PATH: src\api\axios.ts
+📝 EXTENSION: .ts
+====================================================================================================
+
+// src/api/axios.ts
+import axios from "axios"
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+
+const api = axios.create({
+    baseURL: API_BASE_URL,
+    headers: {
+        "Content-Type": "application/json",
+    },
+})
+
+// ============================================================
+// REQUEST INTERCEPTOR — Adds token to every request
+// ============================================================
+api.interceptors.request.use(
+    (config) => {
+        // Try multiple keys for safety
+        const token =
+            localStorage.getItem("token") ||
+            localStorage.getItem("auth_token")
+
+        if (token) {
+            config.headers.Authorization = `Token ${token}`
+        }
+        return config
+    },
+    (error) => Promise.reject(error)
+)
+
+// ============================================================
+// RESPONSE INTERCEPTOR — Handles 401s
+// ============================================================
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            console.warn("⚠️ 401 Unauthorized — clearing token")
+
+            // Clear saved tokens
+            localStorage.removeItem("token")
+            localStorage.removeItem("auth_token")
+            localStorage.removeItem("user")
+            localStorage.removeItem("user_id")
+            localStorage.removeItem("username")
+            localStorage.removeItem("email")
+
+            // Redirect to login (if not already there)
+            if (!window.location.pathname.includes("/login")) {
+                window.location.href = "/login"
+            }
+        }
+        return Promise.reject(error)
+    }
+)
+
+export default api
 
 ====================================================================================================
 📁 FOLDER: components
@@ -4059,6 +4124,7 @@ import { useState, useEffect  } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { DashboardLayout } from "../components/layout/DashboardLayout"
 import { Card } from "../components/ui/Card"
+import ServiceResourceBreakdown from "../components/ServiceResourceBreakdown/ServiceResourceBreakdown"
 import { Copy } from "lucide-react" 
 import {
   DollarSign,
@@ -4118,6 +4184,7 @@ import {
 type MenuItem =
   | "overview"
   | "connect"
+  | "breakdown"
   | "services"
   | "forecast"
   | "resources"
@@ -4155,180 +4222,6 @@ type ServiceBreakdown = {
   percentage: number;
   recommendation?: string;
   estimated_savings?: number;
-}
-
-type PaidResourceCategory = {
-  name: string;
-  description: string;
-  cost_level: 'HIGH' | 'MEDIUM' | 'LOW';
-  cost_driver: string;
-  resources: any[];
-  count: number;
-  estimated_monthly_cost: number;
-}
-
-type PaidResourcesData = {
-  cost_categories: {
-    [key: string]: PaidResourceCategory;
-  };
-  summary: {
-    total_paid_resources: number;
-    high_cost_resources: number;
-    medium_cost_resources: number;
-    low_cost_resources: number;
-    categories_found: number;
-    timestamp: string;
-  };
-  raw_resources?: any;
-  permissions_issues?: string[];
-}
-
-type CostAnalysisData = {
-  high_risk_findings: Array<{
-    category: string;
-    issue: string;
-    impact: string;
-    recommendation: string;
-    potential_savings: string;
-  }>;
-  medium_risk_findings: Array<{
-    category: string;
-    issue: string;
-    impact: string;
-    recommendation: string;
-    potential_savings?: string;
-  }>;
-  low_risk_findings: Array<{
-    category: string;
-    issue: string;
-    impact: string;
-    recommendation: string;
-    potential_savings?: string;
-  }>;
-  recommendations: string[];
-  estimated_savings_potential: number;
-  summary: {
-    total_resources: number;
-    high_cost_categories: number;
-    medium_cost_categories: number;
-    low_cost_categories: number;
-  };
-}
-type ResourceData = {
-  total_resources: number;
-  total_monthly_cost?: number;  
-  cached?: boolean;
-  last_updated?: string;
-  source?: string;
-  permissions_issues?: string[];
-  
-  ec2: {
-    total: number;
-    running: number;
-    stopped: number;
-    avg_running_hours: number;
-  };
-  
-  s3: {
-    total_buckets: number;
-    avg_age_days: number;
-  };
-  
-  lambda: {
-    total_functions: number;
-  };
-  
-  rds: {
-    total_instances: number;
-  };
-  
-  eks?: {
-    total: number;
-  };
-  
-  elasticache?: {
-    total: number;
-  };
-  
-  dynamodb?: {
-    total: number;
-  };
-  
-  redshift?: {
-    total: number;
-  };
-  
-  cloudfront?: {
-    total: number;
-  };
-  
-  load_balancers?: {
-    total: number;
-  };
-  
-  api_gateway?: {
-    total: number;
-  };
-  
-  sqs?: {
-    total: number;
-  };
-  
-  sns?: {
-    total: number;
-  };
-  
-  efs?: {
-    total: number;
-  };
-  
-  ecr?: {
-    total: number;
-  };
-  
-  elastic_beanstalk?: {
-    total: number;
-  };
-  
-  secretsmanager?: {
-    total: number;
-  };
-  
-  logs?: {
-    total: number;
-  };
-  
-  ssm?: {
-    total: number;
-  };
-  
-  config?: {
-    total: number;
-  };
-  
-  codebuild?: {
-    total: number;
-  };
-  
-  workspaces?: {
-    total: number;
-  };
-  
-  kinesis?: {
-    total: number;
-  };
-  
-  ebs?: {
-    total: number;
-  };
-  
-  opensearch?: {
-    total: number;
-  };
-  
-  route53?: {
-    total: number;
-  };
 }
 
 type ProviderData = {
@@ -4563,8 +4456,13 @@ const CostAnalyticsProvider: React.FC = () => {
   const [selectedMenu, setSelectedMenu] = useState<MenuItem>("overview")
 
   const getAuthToken = () => {
-    return localStorage.getItem('token') || sessionStorage.getItem('token')
-  }
+    return (
+        localStorage.getItem('token') ||
+        localStorage.getItem('auth_token') ||
+        sessionStorage.getItem('token') ||
+        sessionStorage.getItem('auth_token')
+    )
+}
 
   const getAuthHeaders = () => {
     return {
@@ -4592,18 +4490,13 @@ const CostAnalyticsProvider: React.FC = () => {
     cost_drivers: [],
   })
 
-  const [resourceData, setResourceData] = useState<ResourceData | null>(null)
-  const [resourceLoading, setResourceLoading] = useState(false)
-
+ 
   const [error, setError] = useState<string | null>(null)
   const [accountId, setAccountId] = useState<number | null>(null)
   const [awsAccounts, setAwsAccounts] = useState<AwsAccount[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<string>("")
 
-  const [paidResources, setPaidResources] = useState<PaidResourcesData | null>(null);
-  const [costAnalysis, setCostAnalysis] = useState<CostAnalysisData | null>(null);
-  
   // GitHub states
   const [githubConnected, setGithubConnected] = useState<boolean>(false);
   const [githubUser, setGithubUser] = useState<any>(null);
@@ -4645,50 +4538,7 @@ const [idleResults, setIdleResults] = useState<any>(null);
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-  const fetchPaidResources = async () => {
-    if (!accountId) return;
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/resources/${accountId}/paid-resources/`, {
-        headers: getAuthHeaders()
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch paid resources');
-      
-      const data: PaidResourcesData = await response.json();
-      console.log("Paid resources data:", data)
-      setPaidResources(data);
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCostAnalysis = async () => {
-    if (!accountId) return;
-    try {
-      const response = await fetch(`${API_BASE_URL}/resources/${accountId}/cost-analysis/`, {
-        headers: getAuthHeaders()
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch cost analysis');
-      
-      const data: CostAnalysisData = await response.json();
-      console.log("Cost analysis data:", data)
-      setCostAnalysis(data);
-    } catch (error) {
-      console.error('Error:', error);
-    }
-  };
-
-  useEffect(() => {
-    if (accountId) {
-      fetchPaidResources();
-      fetchCostAnalysis();
-    }
-  }, [accountId]);
-
+ 
   useEffect(() => {
     const token = getAuthToken()
     if (!token) {
@@ -4796,33 +4646,8 @@ useEffect(() => {
 }, [selectedMenu, accountId]);
 
   // Add this function to your frontend
-const fetchServiceBreakdownFromDB = async () => {
-  if (!accountId) return;
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}/aws/accounts/${accountId}/service-breakdown-db/`, {
-      headers: getAuthHeaders()
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      setProviderData(prev => ({
-        ...prev,
-        service_breakdown: data.service_breakdown,
-        current_month_spend: data.total_monthly
-      }));
-    }
-  } catch (error) {
-    console.error('Error fetching DB service breakdown:', error);
-  }
-};
 
 // Call this after loading the account
-useEffect(() => {
-  if (accountId && selectedMenu === "services") {
-    fetchServiceBreakdownFromDB();
-  }
-}, [accountId, selectedMenu]);
 
   useEffect(() => {
     const loadExternalId = async () => {
@@ -4897,9 +4722,9 @@ useEffect(() => {
       console.log("📊 Cost analytics data received:", data);
 
     const serviceBreakdown = (data.service_breakdown || [])
-    .filter(service => service.amount > 0.50)  // Only show services > $0.50
-    .filter(service => service.percentage > 0.5)  // Only show > 0.5% of total
-    .slice(0, 10);  // Limit to top 10
+    .filter((service: ServiceBreakdown) => service.amount > 0.50)
+    .filter((service: ServiceBreakdown) => service.percentage > 0.5)
+    .slice(0, 10);
       
       setProviderData({
         total_spend: data.total_spend || 0,
@@ -4969,21 +4794,19 @@ useEffect(() => {
     
     // Reset data
     setProviderData({
-      total_spend: 0,
-      today_spend: 0,
-      current_month_spend: 0,
-      current_month_name: '',
-      monthly_change: 0,
-      forecast: { thirtyDay: 0, sevenDay: 0 },
-      daily_spend: [],
-      service_breakdown: [],
-      cost_drivers: [],
-    });
-    setResourceData(null);
-    setPaidResources(null);
-    
-    setTimeout(() => setStatus(''), 3000);
-    
+  total_spend: 0,
+  today_spend: 0,
+  current_month_spend: 0,
+  current_month_name: '',
+  monthly_change: 0,
+  forecast: { thirtyDay: 0, sevenDay: 0 },
+  daily_spend: [],
+  service_breakdown: [],
+  cost_drivers: [],
+  });
+
+setTimeout(() => setStatus(''), 3000);
+
   } catch (error) {
     console.error('Error clearing data:', error);
     setStatus('❌ ' + (error instanceof Error ? error.message : 'Failed to clear data'));
@@ -5024,39 +4847,7 @@ const fetchForecastData = async () => {
 // Call fetch when account changes or forecast menu is selected
 
   
-  const fetchResourceData = async (forceRefresh = false) => {
-    if (!accountId) return;
-    setResourceLoading(true);
-    try {
-      const url = `${API_BASE_URL}/resources/${accountId}/resource_summary/${
-        forceRefresh ? '?no_cache=true' : ''
-      }`;
-      
-      const response = await fetch(url, {
-        headers: getAuthHeaders()
-      });
-      
-      if (response.status === 401) {
-        navigate('/login');
-        return;
-      }
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch resource data');
-      }
-      
-      const data = await response.json();
-      setResourceData(data);
-    } catch (error) {
-      console.error('Error fetching resource data:', error);
-      const message = error instanceof Error ? error.message : 'Failed to load resource data';
-      setStatus(message);
-    } finally {
-      setResourceLoading(false);
-    }
-  };
-
+  
   const refreshAnalytics = async () => {
     if (!accountId) return
 
@@ -5089,31 +4880,6 @@ const fetchForecastData = async () => {
     }
   }
 
-  useEffect(() => {
-    if (!accountId) return;
-    
-    const loadAllData = async () => {
-      setLoading(true);
-      try {
-        if (selectedMenu === "overview" || selectedMenu === "services") {
-          await fetchCostAnalytics();
-        }
-        if (selectedMenu === "resources") {
-          await fetchResourceData();
-        }
-        if (selectedMenu === "services") {
-          await fetchPaidResources();
-        }
-        
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadAllData();
-  }, [accountId, selectedMenu]);
 
   const createRoleInAws = async () => {
     setAwsLoading(true)
@@ -6365,18 +6131,17 @@ console.log("Selected Account:", selectedAccount);
   ]
 }`
 
-  const menuItems: { id: MenuItem; label: string; icon: React.ReactNode }[] = [
+const menuItems: { id: MenuItem; label: string; icon: React.ReactNode }[] = [
     { id: "connect", label: "Connect Account", icon: <Settings className="w-4 h-4" /> },
     { id: "overview", label: "Total Spend", icon: <DollarSign className="w-4 h-4" /> },
-    { id: "services", label: "Service Breakdown", icon: <Settings className="w-4 h-4" /> },
-    { id: "resources", label: "Resources", icon: <Server className="w-4 h-4" /> },
+    { id: "breakdown", label: "Service & Resource Breakdown", icon: <Layers className="w-4 h-4" /> },
     { id: "forecast", label: "Forecast", icon: <TrendingUp className="w-4 h-4" /> },
     { id: "github", label: "GitHub Integration", icon: <Github className="w-4 h-4" /> },
     { id: "deployments", label: "Deployments", icon: <GitMerge className="w-4 h-4" /> },
     { id: "idle", label: "Idle Resources", icon: <Power className="w-4 h-4" /> },
     { id: "storage", label: "Storage Optimization", icon: <Settings className="w-4 h-4" /> },
     { id: "rightsizing", label: "AI Recommendations", icon: <Sparkles className="w-4 h-4" /> },
-  ]
+]
 
   const getYesterday = () => {
     const yesterday = new Date()
@@ -6384,15 +6149,7 @@ console.log("Selected Account:", selectedAccount);
     return yesterday.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
   }
 
-  const getResourceCategoryData = () => {
-  if (!paidResources?.cost_categories) return [];
-  
-  // Convert to array and filter out empty categories
-  return Object.entries(paidResources.cost_categories)
-    .filter(([_, data]) => data.count > 0 && data.estimated_monthly_cost > 0)
-    .sort((a, b) => b[1].estimated_monthly_cost - a[1].estimated_monthly_cost);
-};
-
+ 
   const getCostLevelColor = (level: string) => {
     switch(level) {
       case 'HIGH': return 'text-red-600 dark:text-red-400';
@@ -7683,6 +7440,13 @@ const getChartLabels = () => {
               </div>
             )}
 
+            {selectedMenu === "breakdown" && accountId && (
+            <ServiceResourceBreakdown
+              accountId={accountId}
+              token={getAuthToken() || ''}
+            />
+            )}
+
              {selectedMenu === "forecast" && accountId && renderForecastSection()}
 
              {/* AI Recommendations Section */}
@@ -8276,154 +8040,7 @@ const getChartLabels = () => {
             
             {/* Deployments Section */}
             {selectedMenu === "deployments" && renderDeploymentsSection()}
-
-            {/* Existing sections continue here... */}
-            {selectedMenu === "services" && accountId && (
-              <div className="space-y-6">
-                
-                {accountId && <LowLevelServicesComponent accountId={accountId} />}
-                 <AILowLevelRecommendations accountId={accountId} />
-              </div>
-            )}
-
-            {selectedMenu === "resources" && accountId && (
-  <div className="space-y-6">
-    {/* Paid Resources Section */}
-    <Card className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h3 className="text-2xl font-bold text-foreground">Paid Resources Overview</h3>
-          <p className="text-muted-foreground">
-            All AWS resources that can incur charges, categorized by cost impact
-          </p>
-        </div>
-        <button
-          onClick={fetchPaidResources}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
-        >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          Refresh
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <span className="ml-2">Loading resource data...</span>
-        </div>
-      ) : paidResources && Object.keys(paidResources.cost_categories).length > 0 ? (
-        <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <Card className="p-4 text-center">
-              <Server className="w-6 h-6 mx-auto text-blue-500 mb-2" />
-              <p className="text-2xl font-bold text-foreground">{paidResources.summary?.total_paid_resources || 0}</p>
-              <p className="text-sm text-muted-foreground">Total Paid Resources</p>
-            </Card>
-            <Card className="p-4 text-center bg-red-50 dark:bg-red-950/20">
-              <AlertTriangle className="w-6 h-6 mx-auto text-red-500 mb-2" />
-              <p className="text-2xl font-bold text-red-600">{paidResources.summary?.high_cost_resources || 0}</p>
-              <p className="text-sm text-muted-foreground">High Cost (&gt;$50/mo)</p>
-            </Card>
-            <Card className="p-4 text-center bg-yellow-50 dark:bg-yellow-950/20">
-              <Activity className="w-6 h-6 mx-auto text-yellow-500 mb-2" />
-              <p className="text-2xl font-bold text-yellow-600">{paidResources.summary?.medium_cost_resources || 0}</p>
-              <p className="text-sm text-muted-foreground">Medium Cost ($10-$50/mo)</p>
-            </Card>
-            <Card className="p-4 text-center bg-green-50 dark:bg-green-950/20">
-              <CheckCircle className="w-6 h-6 mx-auto text-green-500 mb-2" />
-              <p className="text-2xl font-bold text-green-600">{paidResources.summary?.low_cost_resources || 0}</p>
-              <p className="text-sm text-muted-foreground">Low Cost (&lt;$10/mo)</p>
-            </Card>
-          </div>
-
-          {/* Resource Categories Grid */}
-          <h4 className="text-lg font-semibold text-foreground mb-4">
-            Resource Categories ({Object.keys(paidResources.cost_categories).length} categories found)
-          </h4>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(paidResources.cost_categories).map(([key, category]: [string, any]) => (
-              <Card key={key} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className={`p-4 ${
-                  category.cost_level === 'HIGH' ? 'bg-red-50 dark:bg-red-950/20' : 
-                  category.cost_level === 'MEDIUM' ? 'bg-yellow-50 dark:bg-yellow-950/20' : 
-                  'bg-green-50 dark:bg-green-950/20'
-                }`}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h5 className="font-semibold text-foreground">{category.name}</h5>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${
-                        category.cost_level === 'HIGH' ? 'bg-red-200 text-red-800' :
-                        category.cost_level === 'MEDIUM' ? 'bg-yellow-200 text-yellow-800' :
-                        'bg-green-200 text-green-800'
-                      }`}>
-                        {category.cost_level} COST
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-foreground">${category.estimated_monthly_cost.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">per month</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <p className="text-sm text-muted-foreground mb-3">{category.description}</p>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Resources:</span>
-                      <span className="font-medium text-foreground">{category.count}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Cost Driver:</span>
-                      <span className="font-medium text-foreground truncate max-w-[180px]" title={category.cost_driver}>
-                        {category.cost_driver}
-                      </span>
-                    </div>
-                  </div>
-                  {category.resources && category.resources.length > 0 && (
-                    <details className="mt-3">
-                      <summary className="text-sm text-primary cursor-pointer hover:underline">
-                        View {category.count} resource{category.count !== 1 ? 's' : ''}
-                      </summary>
-                      <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
-                        {category.resources.slice(0, 10).map((resource: any, idx: number) => (
-                          <div key={idx} className="text-xs p-2 bg-muted/30 rounded flex justify-between">
-                            <span className="font-mono">{resource.resource_id}</span>
-                            <span className="font-semibold text-primary">${resource.amount.toFixed(2)}/mo</span>
-                          </div>
-                        ))}
-                        {category.resources.length > 10 && (
-                          <p className="text-center text-xs text-muted-foreground pt-1">
-                            + {category.resources.length - 10} more resources
-                          </p>
-                        )}
-                      </div>
-                    </details>
-                  )}
-                </div>
-              </Card>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="text-center py-12">
-          <Server className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-          <h4 className="text-lg font-semibold text-foreground mb-2">No Paid Resource Data</h4>
-          <p className="text-muted-foreground mb-6">
-            Paid resource data is not available. Sync your AWS account to discover resources.
-          </p>
-          <button onClick={refreshAnalytics} className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90">
-            Sync Account Data
-          </button>
-        </div>
-      )}
-    </Card>
-
-    
-  </div>
-)}
+           
 
             {selectedMenu === "overview" && accountId && (
               <>
@@ -9911,7 +9528,7 @@ const getChartLabels = () => {
   </Card>
 )}
 
-            {!["overview", "connect", "services", "resources", "github", "deployments", "forecast", "rightsizing", "storage", "idle"].includes(selectedMenu) && (
+{!["overview", "connect", "breakdown", "services", "resources", "github", "deployments", "forecast", "rightsizing", "storage", "idle"].includes(selectedMenu) && (
               <Card>
                 <div className="text-center py-12">
                   <Settings className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -9955,881 +9572,6 @@ const getChartLabels = () => {
 
 // At the very bottom of your file, replace the entire LowLevelServicesComponent with this:
 
-const LowLevelServicesComponent: React.FC<{ accountId: number | null }> = ({ accountId: propAccountId }) => {
-  const [data, setData] = useState<LowLevelServicesData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({
-    search: '',
-    categories: [] as string[],
-    regions: [] as string[],
-    minCost: 0,
-    maxCost: Infinity
-  });
-  const [selectedService, setSelectedService] = useState<LowLevelServiceCategoryData | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [localAccountId, setLocalAccountId] = useState<number | null>(propAccountId);
-  const [accounts, setAccounts] = useState<AwsAccount[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(propAccountId);
-  const [initialFetchDone, setInitialFetchDone] = useState(false);
-  const [refreshInProgress, setRefreshInProgress] = useState(false);
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  const getAuthToken = () => {
-    return localStorage.getItem('token') || sessionStorage.getItem('token');
-  };
-
-  const getAuthHeaders = () => {
-    const token = getAuthToken();
-    return {
-      'Authorization': token ? `Token ${token}` : '',
-      'Content-Type': 'application/json'
-    };
-  };
-
-  const fetchAccounts = async () => {
-    try {
-      const token = getAuthToken();
-      if (!token) throw new Error('No authentication token');
-
-      const response = await fetch(`${API_BASE_URL}/aws/accounts/`, {
-        headers: getAuthHeaders()
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch accounts');
-      
-      const data = await response.json();
-      // Handle both response formats
-      let accountsArray = [];
-      if (data.accounts && Array.isArray(data.accounts)) {
-        accountsArray = data.accounts;
-      } else if (Array.isArray(data)) {
-        accountsArray = data;
-      }
-      
-      setAccounts(accountsArray);
-      
-      if (accountsArray.length > 0 && !selectedAccountId && !propAccountId) {
-        setSelectedAccountId(accountsArray[0].id);
-        setLocalAccountId(accountsArray[0].id);
-      }
-    } catch (err) {
-      console.error('Error fetching accounts:', err);
-    }
-  };
-
- const fetchServicesFast = async (accountIdToUse: number, forceRefresh: boolean = false) => {
-  if (!accountIdToUse) {
-    console.error('No account ID provided');
-    setError('No AWS account selected');
-    return;
-  }
-  
-  setLoading(true);
-  setError(null);
-  
-  try {
-    const token = getAuthToken();
-    if (!token) {
-      setError('Authentication required');
-      setLoading(false);
-      return;
-    }
-
-    const endpoint = forceRefresh 
-      ? `${API_BASE_URL}/api/aws/accounts/${accountIdToUse}/low-level-services-refresh/`
-      : `${API_BASE_URL}/api/aws/accounts/${accountIdToUse}/low-level-services-fast/`;
-    
-    console.log(`Fetching low-level services from: ${endpoint}`);
-    
-    const response = await fetch(endpoint, { 
-      headers: getAuthHeaders()
-    });
-
-    if (response.status === 401 || response.status === 403) {
-      setError('Authentication failed. Please log in again.');
-      setLoading(false);
-      return;
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response:', errorText);
-      throw new Error(`Failed to fetch low-level services: ${response.status}`);
-    }
-    
-    const result = await response.json();
-    console.log('Received data:', result);
-    
-    if (result && result.error) {
-      setError(result.error);
-      setLoading(false);
-      return;
-    }
-    
-    if (!result || typeof result !== 'object') {
-      throw new Error('Invalid response format');
-    }
-    
-    setData(result);
-    setInitialFetchDone(true);
-    
-    if (result.services_by_category) {
-      try {
-        const entries = Object.entries(result.services_by_category);
-        const validEntries = entries.filter(([_, a]) => {
-          const category = a as LowLevelServiceCategoryData;
-          return category && typeof category.total_monthly_cost === 'number' && !isNaN(category.total_monthly_cost);
-        });
-        
-        const topCategories = validEntries
-          .sort(([, a], [, b]) => {
-            const categoryA = a as LowLevelServiceCategoryData;
-            const categoryB = b as LowLevelServiceCategoryData;
-            return (categoryB.total_monthly_cost || 0) - (categoryA.total_monthly_cost || 0);
-          })
-          .slice(0, 3)
-          .map(([id]) => id);
-        
-        setExpandedCategories(new Set(topCategories));
-      } catch (err) {
-        console.error('Error auto-expanding categories:', err);
-      }
-    }
-    
-    if (result.source === 'database') {
-      console.log(`✅ Data loaded from database (${result.cached ? 'cached' : 'fresh'})`);
-      if (result.scan_duration) {
-        console.log(`   Scan took: ${result.scan_duration} seconds`);
-      }
-    }
-    
-  } catch (err) {
-    console.error('Error fetching services:', err);
-    setError(err instanceof Error ? err.message : 'Failed to fetch services');
-  } finally {
-    setLoading(false);
-    setRefreshInProgress(false);
-  }
-};
-
-  const refreshServices = async () => {
-    if (!localAccountId) return;
-    setRefreshInProgress(true);
-    
-    try {
-      await fetchServicesFast(localAccountId, true);
-    } catch (err) {
-      console.error('Error refreshing services:', err);
-      setError('Failed to refresh services');
-    } finally {
-      setRefreshInProgress(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
-
-  useEffect(() => {
-    if (propAccountId) {
-      setLocalAccountId(propAccountId);
-      setSelectedAccountId(propAccountId);
-      fetchServicesFast(propAccountId, false);
-    }
-  }, [propAccountId]);
-
-  useEffect(() => {
-    if (selectedAccountId && !propAccountId && !initialFetchDone) {
-      setLocalAccountId(selectedAccountId);
-      fetchServicesFast(selectedAccountId, false);
-      setInitialFetchDone(true);
-    }
-  }, [selectedAccountId, propAccountId]);
-
-  const handleAccountChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const id = parseInt(e.target.value);
-    setSelectedAccountId(id);
-    setInitialFetchDone(false);
-  };
-
-  const toggleCategory = (categoryId: string) => {
-    setExpandedCategories(prev => {
-      const next = new Set(prev);
-      if (next.has(categoryId)) {
-        next.delete(categoryId);
-      } else {
-        next.add(categoryId);
-      }
-      return next;
-    });
-  };
-
-  const expandAll = () => {
-    if (data?.services_by_category) {
-      try {
-        setExpandedCategories(new Set(Object.keys(data.services_by_category)));
-      } catch (err) {
-        console.error('Error expanding all categories:', err);
-      }
-    }
-  };
-
-  const collapseAll = () => {
-    setExpandedCategories(new Set());
-  };
-
-  const filteredCategories = () => {
-    if (!data?.services_by_category) return [];
-    
-    try {
-      const entries = Object.entries(data.services_by_category);
-      
-      return entries
-        .filter(([_, category]) => {
-          const cat = category as LowLevelServiceCategoryData;
-          
-          if (filters.search) {
-            const searchLower = filters.search.toLowerCase();
-            const matches = 
-              (cat.service_info?.name?.toLowerCase() || '').includes(searchLower) ||
-              (cat.service_info?.description?.toLowerCase() || '').includes(searchLower) ||
-              (cat.category?.toLowerCase() || '').includes(searchLower) ||
-              (cat.resources || []).some(r => 
-                (r?.resource_name?.toLowerCase() || '').includes(searchLower) ||
-                (r?.resource_id?.toLowerCase() || '').includes(searchLower)
-              );
-            if (!matches) return false;
-          }
-          
-          if (filters.categories.length > 0 && !filters.categories.includes(cat.category)) return false;
-          
-          if (filters.regions.length > 0) {
-            const hasRegion = (cat.resources || []).some(r => 
-              r?.region && filters.regions.includes(r.region)
-            );
-            if (!hasRegion) return false;
-          }
-          
-          const monthlyCost = cat.total_monthly_cost || 0;
-          if (monthlyCost < filters.minCost) return false;
-          if (monthlyCost > filters.maxCost) return false;
-          
-          return true;
-        })
-        .sort(([, a], [, b]) => {
-          const catA = a as LowLevelServiceCategoryData;
-          const catB = b as LowLevelServiceCategoryData;
-          return (catB.total_monthly_cost || 0) - (catA.total_monthly_cost || 0);
-        });
-    } catch (error) {
-      console.error('Error filtering categories:', error);
-      return [];
-    }
-  };
-  
-  const allCategories = React.useMemo(() => {
-    if (!data?.services_by_category) return [];
-    
-    try {
-      const categories = Object.values(data.services_by_category)
-        .map(s => {
-          const cat = s as LowLevelServiceCategoryData;
-          return cat?.category;
-        })
-        .filter((cat): cat is string => Boolean(cat));
-      
-      return [...new Set(categories)];
-    } catch (err) {
-      console.error('Error getting allCategories:', err);
-      return [];
-    }
-  }, [data?.services_by_category]);
-  
-  const allRegions = React.useMemo(() => {
-    if (!data?.all_resources) return [];
-    
-    try {
-      const regions = data.all_resources
-        .map(r => r?.region)
-        .filter((region): region is string => Boolean(region));
-      
-      return [...new Set(regions)];
-    } catch (err) {
-      console.error('Error getting allRegions:', err);
-      return [];
-    }
-  }, [data?.all_resources]);
-
-  const totalMonthlyCost = React.useMemo(() => {
-    return typeof data?.summary?.estimated_monthly_cost === 'number' && !isNaN(data.summary.estimated_monthly_cost)
-      ? data.summary.estimated_monthly_cost
-      : 0;
-  }, [data?.summary?.estimated_monthly_cost]);
-  
-  const totalResources = data?.summary?.total_services ?? 0;
-  const uniqueServices = data?.summary?.unique_services_discovered ?? 0;
-  const dataSource = data?.source === 'database' ? '📦 Database' : '☁️ AWS API';
-  const dataAge = data?.cached ? '(cached)' : '(fresh)';
-
-  useEffect(() => {
-    if (data?.services_by_category && !initialFetchDone) {
-      try {
-        const entries = Object.entries(data.services_by_category);
-        const validEntries = entries.filter(([_, a]) => {
-          const cat = a as LowLevelServiceCategoryData;
-          return cat && typeof cat.total_monthly_cost === 'number' && !isNaN(cat.total_monthly_cost);
-        });
-        
-        const topCategories = validEntries
-          .sort(([, a], [, b]) => {
-            const catA = a as LowLevelServiceCategoryData;
-            const catB = b as LowLevelServiceCategoryData;
-            return (catB.total_monthly_cost || 0) - (catA.total_monthly_cost || 0);
-          })
-          .slice(0, 3)
-          .map(([id]) => id);
-        
-        setExpandedCategories(new Set(topCategories));
-      } catch (error) {
-        console.error('Error auto-expanding categories:', error);
-      }
-    }
-  }, [data, initialFetchDone]);
-
-  const ServiceIcon = ({ category, className = "w-5 h-5" }: { category: string; className?: string }) => {
-    const iconMap: Record<string, React.ReactNode> = {
-      'Virtual Private Cloud': <Network className={className} />,
-      'Elastic Compute Cloud': <Cpu className={className} />,
-      'Simple Storage Service': <HardDrive className={className} />,
-      'Relational Database Service': <Database className={className} />,
-      'DynamoDB': <Database className={className} />,
-      'Lambda': <Cloud className={className} />,
-      'Route 53': <Globe className={className} />,
-      'CloudFront': <Cloud className={className} />,
-      'API Gateway': <Settings className={className} />,
-      'Elastic Load Balancing': <Server className={className} />,
-      'Identity & Access Management': <Shield className={className} />,
-    };
-    return iconMap[category] || <Box className={className} />;
-  };
-
-  const PricingBadges = ({ service }: { service: LowLevelService }) => {
-    if (!service) return null;
-    
-    const items = [];
-    if (service.price_per_hour) items.push(`$${service.price_per_hour}/hour`);
-    if (service.price_per_gb_month) items.push(`$${service.price_per_gb_month}/GB-month`);
-    if (service.price_per_million) items.push(`$${service.price_per_million}/million`);
-    if (service.price_per_gb) items.push(`$${service.price_per_gb}/GB`);
-    if (service.price_per_vcpu_hour) items.push(`$${service.price_per_vcpu_hour}/vCPU-hour`);
-    if (service.price_per_month) items.push(`$${service.price_per_month}/month`);
-    
-    if (items.length === 0) return null;
-    
-    return (
-      <div className="flex flex-wrap gap-2">
-        {items.slice(0, 3).map((item, idx) => (
-          <span key={idx} className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
-            {item}
-          </span>
-        ))}
-        {items.length > 3 && (
-          <span className="text-xs px-2 py-1 bg-muted text-muted-foreground rounded">
-            +{items.length - 3} more
-          </span>
-        )}
-      </div>
-    );
-  };
-
-  if (loading && !data) {
-    return (
-      <Card className="p-6">
-        <div className="flex flex-col items-center justify-center py-16">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-          <p className="text-lg font-medium text-foreground">Loading Low-Level Services...</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Loading from database for fast performance
-          </p>
-        </div>
-      </Card>
-    );
-  }
-
-  if (!localAccountId && accounts.length === 0) {
-    return (
-      <Card className="p-6">
-        <div className="flex flex-col items-center justify-center py-16">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-          <p className="text-lg font-medium text-foreground">Loading AWS accounts...</p>
-        </div>
-      </Card>
-    );
-  }
-
-  if (!localAccountId && accounts.length > 0) {
-    return (
-      <Card className="p-6">
-        <div className="text-center py-12">
-          <AlertTriangle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
-          <h4 className="text-lg font-semibold text-foreground mb-2">No AWS Account Selected</h4>
-          <p className="text-muted-foreground mb-6">Please select an AWS account to view low-level services</p>
-          <div className="max-w-xs mx-auto">
-            <label htmlFor="ll-account-select" className="block text-sm font-medium text-muted-foreground mb-2">
-              Select AWS Account
-            </label>
-            <select
-              id="ll-account-select"
-              title="Select AWS Account for Low-Level Services"
-              value={selectedAccountId || ''}
-              onChange={handleAccountChange}
-              className="w-full px-4 py-2 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="">Select an account...</option>
-              {accounts.map(account => (
-                <option key={account.id} value={account.id}>
-                  {account.account_id || account.account_id || 'Unknown'}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
-  const filteredCats = filteredCategories();
-
-  return (
-    <Card className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h3 className="text-2xl font-bold text-foreground">Low-Level Services</h3>
-          <p className="text-muted-foreground">
-            Detailed tracking of AWS low-level services with granular pricing and resource-level visibility
-          </p>
-          {data && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {dataSource} {dataAge} • Last updated: {data.summary?.timestamp ? new Date(data.summary.timestamp).toLocaleString() : 'N/A'}
-              {data.summary?.scan_duration && ` • Scan: ${data.summary.scan_duration}s`}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {!propAccountId && accounts.length > 0 && (
-            <select
-              id="ll-account-select-header"
-              title="Select AWS Account for Low-Level Services"
-              value={selectedAccountId || ''}
-              onChange={handleAccountChange}
-              className="px-3 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              {accounts.map(account => (
-                <option key={account.id} value={account.id}>
-                  {account.account_id || account.account_id || 'Unknown'}
-                </option>
-              ))}
-            </select>
-          )}
-          
-          <button 
-            onClick={expandAll} 
-            disabled={!data?.services_by_category}
-            className="px-3 py-2 text-sm border border-border rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Expand all categories"
-          >
-            Expand All
-          </button>
-          <button 
-            onClick={collapseAll} 
-            className="px-3 py-2 text-sm border border-border rounded-lg hover:bg-muted"
-            title="Collapse all categories"
-          >
-            Collapse All
-          </button>
-          <button 
-            onClick={refreshServices} 
-            disabled={loading || refreshInProgress || !localAccountId} 
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
-          >
-            {(loading || refreshInProgress) ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      {/* Rest of the component remains the same... */}
-      <div className="mb-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              placeholder="Search services, resources, or categories..."
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="w-full px-4 py-2 pl-10 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-          </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`p-2 border border-border rounded-lg hover:bg-muted transition-colors ${
-              showFilters ? 'bg-primary/10 border-primary' : ''
-            }`}
-            title="Filter"
-          >
-            <Filter className="w-5 h-5" />
-          </button>
-        </div>
-
-        {showFilters && (
-          <Card className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="text-xs font-medium mb-1 block">Categories</label>
-                <select
-                  multiple
-                  value={filters.categories}
-                  onChange={(e) => setFilters({ 
-                    ...filters, 
-                    categories: Array.from(e.target.selectedOptions, o => o.value) 
-                  })}
-                  className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm"
-                  size={4}
-                >
-                  {allCategories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block">Regions</label>
-                <select
-                  multiple
-                  value={filters.regions}
-                  onChange={(e) => setFilters({ 
-                    ...filters, 
-                    regions: Array.from(e.target.selectedOptions, o => o.value) 
-                  })}
-                  className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm"
-                  size={4}
-                >
-                  {allRegions.map(region => (
-                    <option key={region} value={region}>{region}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block">Min Cost ($)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={filters.minCost || ''}
-                  onChange={(e) => setFilters({ ...filters, minCost: Math.max(0, Number(e.target.value) || 0) })}
-                  className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm"
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium mb-1 block">Max Cost ($)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={filters.maxCost === Infinity ? '' : filters.maxCost}
-                  onChange={(e) => setFilters({ 
-                    ...filters, 
-                    maxCost: e.target.value ? Number(e.target.value) : Infinity 
-                  })}
-                  className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm"
-                  placeholder="No limit"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end mt-4">
-              <button
-                onClick={() => setFilters({
-                  search: '',
-                  categories: [],
-                  regions: [],
-                  minCost: 0,
-                  maxCost: Infinity
-                })}
-                className="text-sm text-primary hover:underline"
-              >
-                Clear all filters
-              </button>
-            </div>
-          </Card>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Monthly Cost</p>
-              <p className="text-2xl font-bold text-foreground">
-                ${typeof totalMonthlyCost === 'number' && !isNaN(totalMonthlyCost)
-                  ? totalMonthlyCost.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })
-                  : '0.00'}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
-              <Layers className="w-5 h-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Resources</p>
-              <p className="text-2xl font-bold text-foreground">{totalResources}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center">
-              <Box className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Unique Services</p>
-              <p className="text-2xl font-bold text-foreground">{uniqueServices}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
-              <Globe className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Regions</p>
-              <p className="text-2xl font-bold text-foreground">{allRegions.length}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {allRegions.slice(0, 3).join(', ')}
-                {allRegions.length > 3 ? '...' : ''}
-              </p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {error ? (
-        <div className="text-center py-12">
-          <AlertTriangle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
-          <h4 className="text-lg font-semibold text-foreground mb-2">Unable to Load Services</h4>
-          <p className="text-muted-foreground mb-6">{error}</p>
-          <button
-            onClick={() => localAccountId && fetchServicesFast(localAccountId, true)}
-            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
-          >
-            Retry
-          </button>
-        </div>
-      ) : filteredCats.length > 0 ? (
-        <div className="space-y-4">
-          {filteredCats.map(([serviceId, categoryData]) => {
-            const cat = categoryData as LowLevelServiceCategoryData;
-            if (!cat || !cat.service_info) return null;
-            
-            return (
-              <Card key={serviceId} className="p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <ServiceIcon category={cat.category || ''} className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-lg font-semibold text-foreground">
-                          {cat.service_info.name || 'Unknown Service'}
-                        </h4>
-                        <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full">
-                          {cat.category || 'Uncategorized'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {cat.service_info.description || 'No description available'}
-                      </p>
-                      <PricingBadges service={cat.service_info} />
-                    </div>
-                  </div>
-                  <div className="text-right ml-4">
-                    <p className="text-2xl font-bold text-foreground">
-                      ${typeof cat.total_monthly_cost === 'number' && !isNaN(cat.total_monthly_cost)
-                        ? cat.total_monthly_cost.toFixed(2)
-                        : '0.00'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">per month</p>
-                    <div className="flex items-center justify-end gap-2 mt-2">
-                      <span className="text-xs text-muted-foreground">
-                        {cat.total_count || 0} resources
-                      </span>
-                      <button
-                        onClick={() => toggleCategory(serviceId)}
-                        className="p-1 hover:bg-muted rounded"
-                      >
-                        {expandedCategories.has(serviceId) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {expandedCategories.has(serviceId) && (
-                  <div className="mt-4 pt-4 border-t border-border">
-                    <div className="flex justify-between items-center mb-3">
-                      <h5 className="font-medium text-foreground">
-                        Resources ({cat.resources?.length || 0})
-                      </h5>
-                      <button
-                        onClick={() => {
-                          setSelectedService(cat);
-                          setModalOpen(true);
-                        }}
-                        className="text-xs text-primary hover:underline"
-                      >
-                        View All
-                      </button>
-                    </div>
-                    
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {(cat.resources || [])
-                        .filter(r => r && typeof r.estimated_monthly_cost === 'number' && !isNaN(r.estimated_monthly_cost))
-                        .sort((a, b) => (b.estimated_monthly_cost || 0) - (a.estimated_monthly_cost || 0))
-                        .slice(0, 5)
-                        .map((resource, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                            <div className="flex-1">
-                              <p className="font-medium text-sm text-foreground">
-                                {resource.resource_name || 'Unnamed Resource'}
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1 font-mono">
-                                {resource.resource_id || 'No ID'}
-                              </p>
-                            </div>
-                            <div className="text-right ml-4">
-                              <p className="text-lg font-semibold text-foreground">
-                                ${(resource.estimated_monthly_cost || 0).toFixed(2)}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      
-                      {cat.resources && cat.resources.length > 5 && (
-                        <div className="text-center pt-2">
-                          <p className="text-sm text-muted-foreground">
-                            + {cat.resources.length - 5} more resources
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <Box className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-          <h4 className="text-lg font-semibold text-foreground mb-2">No Services Found</h4>
-          <p className="text-muted-foreground">
-            {filters.search || filters.categories.length > 0 || filters.regions.length > 0
-              ? 'Try adjusting your filters'
-              : data ? 'No low-level services discovered in this account' : 'Click Refresh to discover services'}
-          </p>
-          {!data && !loading && (
-            <button
-              onClick={() => localAccountId && fetchServicesFast(localAccountId, true)}
-              className="mt-6 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
-            >
-              Discover Services
-            </button>
-          )}
-        </div>
-      )}
-
-      {modalOpen && selectedService && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b border-border flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-bold text-foreground">
-                  {selectedService.service_info?.name || 'Unknown Service'}
-                </h3>
-                <p className="text-sm text-muted-foreground">{selectedService.category || 'Uncategorized'}</p>
-              </div>
-              <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-muted rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              <div className="space-y-4">
-                {(selectedService.resources || [])
-                  .filter(r => r && typeof r.estimated_monthly_cost === 'number' && !isNaN(r.estimated_monthly_cost))
-                  .sort((a, b) => (b.estimated_monthly_cost || 0) - (a.estimated_monthly_cost || 0))
-                  .map((resource, idx) => (
-                    <Card key={idx} className="p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className="font-semibold text-foreground">
-                            {resource.resource_name || 'Unnamed Resource'}
-                          </p>
-                          <p className="text-xs text-muted-foreground font-mono mt-1">
-                            {resource.resource_id || 'No ID'}
-                          </p>
-                          <div className="mt-2">
-                            <span className="font-bold text-primary">
-                              ${(resource.estimated_monthly_cost || 0).toFixed(2)}/month
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-              </div>
-            </div>
-            
-            <div className="p-6 border-t border-border bg-muted/30">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Monthly Cost</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    ${(selectedService.total_monthly_cost || 0).toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Resources</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {selectedService.total_count || 0}
-                  </p>
-                </div>
-                <button onClick={() => setModalOpen(false)} className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90">
-                  Close
-                </button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-    </Card>
-  );
-};
 
 export default CostAnalyticsProvider;
 
@@ -14730,233 +13472,256 @@ import { Input } from "../../components/ui/Input"
 import { Button } from "../../components/ui/Button"
 import { useAuthStore } from "../../store/authStore"
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+
 export const Login: React.FC = () => {
-  const navigate = useNavigate()
-  const { setToken, setUser, setMfaVerified } = useAuthStore()
-  const [formData, setFormData] = useState({ 
-    username: "", 
-    password: "",
-    mfa_code: "" 
-  })
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [mfaRequired, setMfaRequired] = useState(false)
-  const [mfaUserId, setMfaUserId] = useState<string | null>(null)
+    const navigate = useNavigate()
+    const { setToken, setUser, setMfaVerified } = useAuthStore()
+    const [formData, setFormData] = useState({
+        username: "",
+        password: "",
+        mfa_code: "",
+    })
+    const [error, setError] = useState("")
+    const [loading, setLoading] = useState(false)
+    const [mfaRequired, setMfaRequired] = useState(false)
+    const [mfaUserId, setMfaUserId] = useState<string | null>(null)
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setLoading(true)
-
-    try {
-      const response = await axios.post(
-        `${API_BASE_URL}/login/`,
-        {
-          username: formData.username,
-          password: formData.password,
-          mfa_code: formData.mfa_code || undefined
-        }, 
-         {
-    headers: {
-      'Content-Type': 'application/json'  // Explicitly set JSON header
-    }
-  }
-      )
-
-      if (response.data.mfa_required) {
-        // MFA is required but no code provided yet
-        setMfaRequired(true)
-        setMfaUserId(response.data.user_id)
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
         setError("")
-        
-        // Store user ID for MFA verification
-        localStorage.setItem("mfa_user_id", response.data.user_id)
-      } else if (response.data.token) {
-        // Login successful (with MFA if required)
-        const { token, user_id, username, email } = response.data
-        
-        // Store token and user info
-        setToken(token)
-        localStorage.setItem("auth_token", token)
-        
-        setUser({
-          id: user_id.toString(),
-          email: email || formData.username,
-          username: username || formData.username.split('@')[0]
-        })
-        
-        setMfaVerified(true)
-        
-        // Clear MFA data if any
-        localStorage.removeItem("mfa_user_id")
-        
-        // Navigate to dashboard
-        navigate("/dashboard")
-      } else {
-        setError("Login failed. Please try again.")
-      }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 
-                          err.response?.data?.message || 
-                          "Invalid credentials or server error"
-      setError(errorMessage)
-      
-      // Reset MFA state on error
-      setMfaRequired(false)
-      setMfaUserId(null)
-    } finally {
-      setLoading(false)
+        setLoading(true)
+
+        try {
+            const response = await axios.post(
+                `${API_BASE_URL}/login/`,
+                {
+                    username: formData.username,
+                    password: formData.password,
+                    mfa_code: formData.mfa_code || undefined,
+                },
+                {
+                    headers: { "Content-Type": "application/json" },
+                }
+            )
+
+            // ============================================================
+            // CASE 1: MFA is required but code not provided yet
+            // ============================================================
+            if (response.data.mfa_required) {
+                setMfaRequired(true)
+                setMfaUserId(response.data.user_id)
+                setError("")
+
+                localStorage.setItem("mfa_user_id", response.data.user_id)
+                return
+            }
+
+            // ============================================================
+            // CASE 2: Login successful (token returned)
+            // ============================================================
+            if (response.data.token) {
+                const { token, user_id, username, email } = response.data
+
+                // ✅ Save token in MULTIPLE places so nothing breaks
+                setToken(token) // Zustand store
+                localStorage.setItem("token", token) // Primary key
+                localStorage.setItem("auth_token", token) // Backup key
+
+                // ✅ Save user info
+                const userData = {
+                    id: user_id.toString(),
+                    email: email || formData.username,
+                    username: username || formData.username.split("@")[0],
+                }
+                setUser(userData)
+                localStorage.setItem("user", JSON.stringify(userData))
+                localStorage.setItem("user_id", user_id.toString())
+                localStorage.setItem("username", userData.username)
+                localStorage.setItem("email", userData.email)
+
+                setMfaVerified(true)
+
+                // Clear MFA temp data
+                localStorage.removeItem("mfa_user_id")
+
+                // ✅ Verify token was saved (debug log)
+                console.log("✅ Login successful")
+                console.log("Token saved:", token.substring(0, 15) + "...")
+                console.log("localStorage.token:", localStorage.getItem("token") ? "✅ set" : "❌ missing")
+
+                // Redirect to dashboard
+                navigate("/dashboard")
+            } else {
+                setError("Login failed. Please try again.")
+            }
+        } catch (err: any) {
+            const errorMessage =
+                err.response?.data?.error ||
+                err.response?.data?.message ||
+                "Invalid credentials or server error"
+            setError(errorMessage)
+
+            setMfaRequired(false)
+            setMfaUserId(null)
+        } finally {
+            setLoading(false)
+        }
     }
-  }
 
-  const handleDirectMFA = () => {
-    // If MFA is required but user wants to go directly to MFA page
-    if (mfaUserId) {
-      localStorage.setItem("mfa_user_id", mfaUserId)
-      navigate("/auth/mfa-verify", {
-        state: { userId: mfaUserId }
-      })
+    const handleDirectMFA = () => {
+        if (mfaUserId) {
+            localStorage.setItem("mfa_user_id", mfaUserId)
+            navigate("/auth/mfa-verify", {
+                state: { userId: mfaUserId },
+            })
+        }
     }
-  }
 
-  const handleForgotPassword = () => {
-    navigate("/auth/forgot-password")
-  }
+    const handleForgotPassword = () => {
+        navigate("/auth/forgot-password")
+    }
 
-  const handleSignUp = () => {
-    navigate("/auth/register")
-  }
+    const handleSignUp = () => {
+        navigate("/auth/register")
+    }
 
-  
+    return (
+        <AuthLayout title="Welcome Back" subtitle="Sign in to your account">
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-4">
+                    <Input
+                        type="text"
+                        label="Username or Email"
+                        placeholder="Enter your username or email"
+                        value={formData.username}
+                        onChange={(e) =>
+                            setFormData({ ...formData, username: e.target.value })
+                        }
+                        required
+                        disabled={loading}
+                        autoComplete="username"
+                    />
 
-  return (
-    <AuthLayout title="Welcome Back" subtitle="Sign in to your account">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-4">
-          <Input
-            type="text"
-            label="Username or Email"
-            placeholder="Enter your username or email"
-            value={formData.username}
-            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-            required
-            disabled={loading}
-            autoComplete="username"
-          />
+                    <Input
+                        type="password"
+                        label="Password"
+                        placeholder="Enter your password"
+                        value={formData.password}
+                        onChange={(e) =>
+                            setFormData({ ...formData, password: e.target.value })
+                        }
+                        required
+                        disabled={loading}
+                        autoComplete="current-password"
+                    />
 
-          <Input
-            type="password"
-            label="Password"
-            placeholder="Enter your password"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            required
-            disabled={loading}
-            autoComplete="current-password"
-          />
+                    {mfaRequired && (
+                        <div className="space-y-2">
+                            <Input
+                                type="text"
+                                label="MFA Code (6-digit)"
+                                placeholder="Enter MFA code from authenticator app"
+                                value={formData.mfa_code}
+                                onChange={(e) =>
+                                    setFormData({
+                                        ...formData,
+                                        mfa_code: e.target.value.replace(/\D/g, "").slice(0, 6),
+                                    })
+                                }
+                                maxLength={6}
+                                required={mfaRequired}
+                                disabled={loading}
+                                className="text-center text-2xl tracking-widest"
+                                autoComplete="one-time-code"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Enter the 6-digit code from your authenticator app
+                            </p>
+                        </div>
+                    )}
+                </div>
 
-          {mfaRequired && (
-            <div className="space-y-2">
-              <Input
-                type="text"
-                label="MFA Code (6-digit)"
-                placeholder="Enter MFA code from authenticator app"
-                value={formData.mfa_code}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  mfa_code: e.target.value.replace(/\D/g, '').slice(0, 6) 
-                })}
-                maxLength={6}
-                required={mfaRequired}
-                disabled={loading}
-                className="text-center text-2xl tracking-widest"
-                autoComplete="one-time-code"
-              />
-              <p className="text-xs text-muted-foreground">
-                Enter the 6-digit code from your authenticator app
-              </p>
+                {error && (
+                    <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
+                        {error}
+                    </div>
+                )}
+
+                <div className="flex items-center justify-between text-sm">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" className="rounded" disabled={loading} />
+                        <span className="text-muted-foreground">Remember me</span>
+                    </label>
+                    <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        className="text-primary hover:underline disabled:opacity-50"
+                        disabled={loading}
+                    >
+                        Forgot password?
+                    </button>
+                </div>
+
+                <div className="space-y-3">
+                    <Button
+                        type="submit"
+                        className="w-full"
+                        loading={loading}
+                        disabled={
+                            !formData.username ||
+                            !formData.password ||
+                            (mfaRequired && !formData.mfa_code)
+                        }
+                    >
+                        {mfaRequired ? "Verify & Sign In" : "Sign In"}
+                    </Button>
+
+                    {mfaRequired && (
+                        <div className="text-center">
+                            <button
+                                type="button"
+                                onClick={handleDirectMFA}
+                                className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                                disabled={loading}
+                            >
+                                Go to MFA verification page →
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                    <div className="text-center text-sm text-muted-foreground">
+                        Don't have an account?{" "}
+                        <button
+                            type="button"
+                            onClick={handleSignUp}
+                            className="text-primary hover:underline"
+                            disabled={loading}
+                        >
+                            Sign up
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            {/* Demo credentials note */}
+            <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-md">
+                <h4 className="font-medium text-sm mb-2">Demo Credentials (if applicable)</h4>
+                <ul className="text-xs text-gray-600 space-y-1">
+                    <li>
+                        <strong>Username:</strong> demo_user
+                    </li>
+                    <li>
+                        <strong>Password:</strong> demo_password
+                    </li>
+                    <li>• If MFA is enabled, check your authenticator app</li>
+                    <li>• Use backup codes if you've lost access</li>
+                </ul>
             </div>
-          )}
-        </div>
-
-        {error && (
-          <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
-            {error}
-          </div>
-        )}
-
-        <div className="flex items-center justify-between text-sm">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input 
-              type="checkbox" 
-              className="rounded" 
-              disabled={loading}
-            />
-            <span className="text-muted-foreground">Remember me</span>
-          </label>
-          <button
-            type="button"
-            onClick={handleForgotPassword}
-            className="text-primary hover:underline disabled:opacity-50"
-            disabled={loading}
-          >
-            Forgot password?
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          <Button 
-            type="submit" 
-            className="w-full" 
-            loading={loading}
-            disabled={!formData.username || !formData.password || (mfaRequired && !formData.mfa_code)}
-          >
-            {mfaRequired ? "Verify & Sign In" : "Sign In"}
-          </Button>
-
-          {mfaRequired && (
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={handleDirectMFA}
-                className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                disabled={loading}
-              >
-                Go to MFA verification page →
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="pt-4 border-t border-border">
-          <div className="text-center text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <button 
-              type="button" 
-              onClick={handleSignUp}
-              className="text-primary hover:underline"
-              disabled={loading}
-            >
-              Sign up
-            </button>
-          </div>
-        </div>
-      </form>
-
-      {/* Demo credentials note */}
-      <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-md">
-        <h4 className="font-medium text-sm mb-2">Demo Credentials (if applicable)</h4>
-        <ul className="text-xs text-gray-600 space-y-1">
-          <li><strong>Username:</strong> demo_user</li>
-          <li><strong>Password:</strong> demo_password</li>
-          <li>• If MFA is enabled, check your authenticator app</li>
-          <li>• Use backup codes if you've lost access</li>
-        </ul>
-      </div>
-    </AuthLayout>
-  )
+        </AuthLayout>
+    )
 }
 
 ====================================================================================================
