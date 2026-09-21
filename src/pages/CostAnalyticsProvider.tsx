@@ -2007,7 +2007,7 @@ console.log("Selected Account:", selectedAccount);
 const menuItems: { id: MenuItem; label: string; icon: React.ReactNode }[] = [
     { id: "connect", label: "Connect Account", icon: <Settings className="w-4 h-4" /> },
     { id: "overview", label: "Total Spend", icon: <DollarSign className="w-4 h-4" /> },
-    { id: "breakdown", label: "Service & Resource Breakdown", icon: <Layers className="w-4 h-4" /> },
+    { id: "breakdown", label: "Service & Resource", icon: <Layers className="w-4 h-4" /> },
     { id: "forecast", label: "Forecast", icon: <TrendingUp className="w-4 h-4" /> },
     { id: "github", label: "GitHub Integration", icon: <Github className="w-4 h-4" /> },
     { id: "deployments", label: "Deployments", icon: <GitMerge className="w-4 h-4" /> },
