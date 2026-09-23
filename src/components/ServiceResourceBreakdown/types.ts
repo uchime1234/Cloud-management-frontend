@@ -51,15 +51,33 @@ export interface Service {
     resources: Resource[];
 }
 
+export interface TopFinding {
+    title: string;
+    verdict: AIVerdict;
+    cost: number;
+    savings: number;
+}
+
+export interface BreakdownSummaryBlock {
+    ai_summary: string;
+    top_findings: TopFinding[];
+    scan_duration_seconds: number | null;
+    ai_calls_made: number;
+    ai_calls_skipped: number;
+    scanned_at: string | null;
+}
+
 export interface BreakdownResponse {
     success: boolean;
     cached: boolean;
+    region: string;
     total_services: number;
     total_resources: number;
     total_monthly_cost: number;
     total_savings: number;
     services: Service[];
     resources: Resource[];
+    summary: BreakdownSummaryBlock;
     last_scan: string;
 }
 
@@ -92,4 +110,9 @@ export interface AIDetailPanelProps {
     accountId: string | number;
     token: string;
     onActionComplete?: (resourceId: string) => void;
+}
+
+export interface Region {
+    code: string;
+    name: string;
 }

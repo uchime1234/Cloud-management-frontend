@@ -580,3 +580,102 @@
     .srb-ai-panel { background: #0f172a; }
     .srb-resource-bar:hover { background: #1e293b; }
 }
+
+/* ==================== REGION PICKER ==================== */
+.srb-region-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.srb-region-picker label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.srb-region-picker select {
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    font-size: 13px;
+    color: #0f172a;
+    cursor: pointer;
+    min-width: 220px;
+}
+
+.srb-region-picker select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.srb-header-right {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* ==================== AI SUMMARY ==================== */
+.srb-ai-summary {
+    margin-top: 32px;
+    padding: 24px;
+    background: linear-gradient(135deg, #f5f3ff 0%, #fdf2f8 100%);
+    border: 1px solid #e9d5ff;
+    border-radius: 14px;
+}
+
+.srb-ai-summary-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.srb-ai-summary-icon {
+    font-size: 26px;
+}
+
+.srb-ai-summary-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #4c1d95;
+    font-weight: 700;
+}
+
+.srb-ai-summary-meta {
+    margin-left: auto;
+    font-size: 12px;
+    color: #7c3aed;
+    opacity: 0.75;
+}
+
+.srb-ai-summary-body {
+    font-size: 14px;
+    line-height: 1.75;
+    color: #1f2937;
+}
+
+.srb-ai-summary-body p {
+    margin: 0 0 10px 0;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+    .srb-ai-summary {
+        background: linear-gradient(135deg, #1e1b4b 0%, #4a1d5f 100%);
+        border-color: #6b21a8;
+    }
+    .srb-ai-summary-header h3 { color: #ddd6fe; }
+    .srb-ai-summary-meta { color: #c4b5fd; }
+    .srb-ai-summary-body { color: #e5e7eb; }
+    .srb-region-picker select {
+        background: #1e293b;
+        border-color: #334155;
+        color: #f1f5f9;
+    }
+}
