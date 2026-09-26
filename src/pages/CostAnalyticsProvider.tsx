@@ -51,6 +51,7 @@ import {
   Network,
   ChevronUp,
   ChevronDown,
+  Clock,
   Filter,
   Search,
   X,
@@ -411,6 +412,12 @@ const [storageScanning, setStorageScanning] = useState<boolean>(false);
 const [storageResults, setStorageResults] = useState<StorageScanResult | null>(null);
 const [storageActiveTab, setStorageActiveTab] = useState<string>('unused');
 
+// Resource forecast (new engine)
+const [resourceForecast, setResourceForecast] = useState<any>(null);
+const [resourceForecastLoading, setResourceForecastLoading] = useState(false);
+const [resourceForecastError, setResourceForecastError] = useState<string | null>(null);
+const [resourceForecastNeedsScan, setResourceForecastNeedsScan] = useState(false);
+
 // Idle Resources States
 const [idleScanning, setIdleScanning] = useState<boolean>(false);
 const [idleResults, setIdleResults] = useState<any>(null);
@@ -551,12 +558,11 @@ useEffect(() => {
     loadExternalId();
   }, []);
 
-  useEffect(() => {
-  if (selectedMenu === "forecast" && accountId) {
-    fetchForecastData();
+ useEffect(() => {
+  if (selectedMenu === "forecast" && accountId && !resourceForecast) {
+    fetchResourceForecast(false);
   }
 }, [selectedMenu, accountId]);
-
 // Add this useEffect to load cached storage results when the menu is selected
 
   const fetchCostAnalytics = async () => {
@@ -1390,6 +1396,66 @@ const startScan = async () => {
 };
 // Add a force refresh button in the UI
 
+// ============================================================
+// RESOURCE FORECAST
+// ============================================================
+const fetchResourceForecast = async (forceRefresh = false) => {
+  if (!accountId) return;
+
+  setResourceForecastLoading(true);
+  setResourceForecastError(null);
+  setResourceForecastNeedsScan(false);
+
+  try {
+    const region = 'us-east-1'; // will be replaced by actual scanned region below
+    const params = new URLSearchParams();
+    params.set('region', region);
+    if (forceRefresh) params.set('force_refresh', 'true');
+
+    const response = await fetch(
+      `${API_BASE_URL}/aws/accounts/${accountId}/resource-forecast/?${params.toString()}`,
+      { headers: getAuthHeaders() }
+    );
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to load forecast');
+    }
+
+    const data = await response.json();
+
+    if (data.error === 'no_resources') {
+      setResourceForecastNeedsScan(true);
+      setResourceForecast(null);
+    } else {
+      setResourceForecast(data);
+    }
+  } catch (error: any) {
+    console.error('Forecast error:', error);
+    setResourceForecastError(error.message);
+  } finally {
+    setResourceForecastLoading(false);
+  }
+};
+
+const clearResourceForecastCache = async () => {
+  if (!accountId) return;
+  if (!window.confirm('Clear cached forecast? You will regenerate it on next open.')) return;
+
+  try {
+    const region = 'us-east-1';
+    await fetch(
+      `${API_BASE_URL}/aws/accounts/${accountId}/resource-forecast/clear/?region=${region}`,
+      { method: 'DELETE', headers: getAuthHeaders() }
+    );
+    setResourceForecast(null);
+    setResourceForecastNeedsScan(false);
+    await fetchResourceForecast(true);
+  } catch (error) {
+    console.error('Clear forecast error:', error);
+  }
+};
+
 
 // Replace your existing scanAllIdleResources function with this:
 const scanAllIdleResources = async (forceRefresh = false) => {
@@ -2008,7 +2074,7 @@ const menuItems: { id: MenuItem; label: string; icon: React.ReactNode }[] = [
     { id: "connect", label: "Connect Account", icon: <Settings className="w-4 h-4" /> },
     { id: "overview", label: "Total Spend", icon: <DollarSign className="w-4 h-4" /> },
     { id: "breakdown", label: "Service & Resource", icon: <Layers className="w-4 h-4" /> },
-    { id: "forecast", label: "Forecast", icon: <TrendingUp className="w-4 h-4" /> },
+    { id: "forecast", label: "Cost Forecast", icon: <TrendingUp className="w-4 h-4" /> },
     { id: "github", label: "GitHub Integration", icon: <Github className="w-4 h-4" /> },
     { id: "deployments", label: "Deployments", icon: <GitMerge className="w-4 h-4" /> },
     { id: "idle", label: "Idle Resources", icon: <Power className="w-4 h-4" /> },
@@ -2610,349 +2676,252 @@ const renderAIRecommendationsSection = () => (
   </div>
 );
 
-  
-const renderForecastSection = () => {
-  if (forecastLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <span className="ml-2">Loading forecast data...</span>
-      </div>
-    );
-  }
-  
-  if (!forecastData) {
+// ============================================================
+// RESOURCE FORECAST
+// ============================================================
+
+// ============================================================
+// RESOURCE FORECAST UI
+// ============================================================
+const renderResourceForecastSection = () => {
+  // ---------- Empty (no breakdown cache for this region) ----------
+  if (resourceForecastNeedsScan) {
     return (
       <Card className="p-12 text-center">
-        <TrendingUp className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-        <h3 className="text-xl font-semibold mb-2">No Forecast Data Available</h3>
-        <p className="text-muted-foreground">Sync your AWS account to generate cost forecasts</p>
-        <button onClick={refreshAnalytics} className="mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-lg">
-          Sync Account Data
+        <Database className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+        <h3 className="text-xl font-semibold mb-2">No resources scanned yet</h3>
+        <p className="text-muted-foreground mb-6 max-w-lg mx-auto">
+          The forecast is built from your Service &amp; Resource Breakdown cache.
+          Go to the breakdown page, pick a region, and scan — then come back here.
+        </p>
+        <button
+          onClick={() => setSelectedMenu('breakdown')}
+          className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90"
+        >
+          Go to Service &amp; Resource Breakdown
         </button>
       </Card>
     );
   }
-  
-  const getTimeframeData = () => {
-    switch(selectedTimeframe) {
-      case '2days': return forecastData.two_days;
-      case '1week': return forecastData.one_week;
-      case '1month': return forecastData.one_month;
-      case '2months': return forecastData.two_months;
-      case '3months': return forecastData.three_months;
-      default: return forecastData.one_month;
-    }
+
+  // ---------- Loading ----------
+  if (resourceForecastLoading) {
+    return (
+      <Card className="p-12 text-center">
+        <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+        <p className="text-foreground font-medium">Building your forecast…</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Analyzing resource costs and generating AI insights
+        </p>
+      </Card>
+    );
+  }
+
+  // ---------- Error ----------
+  if (resourceForecastError) {
+    return (
+      <Card className="p-12 text-center">
+        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Could not load forecast</h3>
+        <p className="text-muted-foreground mb-4">{resourceForecastError}</p>
+        <button
+          onClick={() => fetchResourceForecast(true)}
+          className="px-6 py-2 bg-primary text-primary-foreground rounded-lg"
+        >
+          Try Again
+        </button>
+      </Card>
+    );
+  }
+
+  if (!resourceForecast) return null;
+
+  const topResources: any[] = resourceForecast.top_resources || [];
+
+  // Verdict → color map
+  const verdictColor: Record<string, string> = {
+    LEAVE_IT: '#10b981',
+    MONITOR_IT: '#f59e0b',
+    SCHEDULE_IT: '#3b82f6',
+    DOWNSIZE_IT: '#f97316',
+    STOP_IT: '#ef4444',
+    TERMINATE_IT: '#374151',
   };
-  
-  const timeframeData = getTimeframeData();
-  
+
   return (
     <div className="space-y-6">
-      {/* Timeframe Selector */}
-      <Card className="p-4">
-        <div className="flex flex-wrap gap-2">
-          {[
-            { id: '2days', label: '2 Days', color: 'bg-blue-500' },
-            { id: '1week', label: '1 Week', color: 'bg-green-500' },
-            { id: '1month', label: '1 Month', color: 'bg-yellow-500' },
-            { id: '2months', label: '2 Months', color: 'bg-orange-500' },
-            { id: '3months', label: '3 Months', color: 'bg-red-500' }
-          ].map(tf => (
-            <button
-              key={tf.id}
-              onClick={() => setSelectedTimeframe(tf.id as any)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                selectedTimeframe === tf.id
-                  ? `${tf.color} text-white shadow-lg scale-105`
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-            >
-              {tf.label}
-            </button>
-          ))}
+      {/* Region banner */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Cost Forecast</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Region: <span className="font-mono font-semibold">{resourceForecast.region}</span>
+            {' '}· {resourceForecast.resource_count} resources ·
+            {' '}cached {new Date(resourceForecast.scanned_at).toLocaleString()}
+          </p>
         </div>
-      </Card>
-      
-      {/* Main Forecast Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Current Month</p>
-              <p className="text-2xl font-bold text-foreground">
-                ${(forecastData.current_month_cost || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-              </p>
-            </div>
-          </div>
-        </Card>
-        
-        <Card className="p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Next 7 Days</p>
-              <p className="text-2xl font-bold text-green-600">
-                ${(forecastData.one_week?.total || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-              </p>
-            </div>
-          </div>
-        </Card>
-        
-        <Card className="p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Next 30 Days</p>
-              <p className="text-2xl font-bold text-orange-600">
-                ${(forecastData.one_month?.total || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-              </p>
-              {forecastData.one_month?.vs_current_month !== 0 && (
-                <p className={`text-xs ${forecastData.one_month?.vs_current_month > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                  {forecastData.one_month?.vs_current_month > 0 ? '↑' : '↓'} 
-                  {Math.abs(forecastData.one_month?.vs_current_month)}% vs current
-                </p>
-              )}
-            </div>
-          </div>
-        </Card>
-        
-        <Card className="p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Next 90 Days</p>
-              <p className="text-2xl font-bold text-red-600">
-                ${(forecastData.three_months?.total || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-              </p>
-            </div>
-          </div>
-        </Card>
+        <div className="flex gap-2">
+          <button
+            onClick={() => fetchResourceForecast(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90"
+          >
+            <RefreshCw className="w-4 h-4" />
+            New Forecast
+          </button>
+          <button
+            onClick={clearResourceForecastCache}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+          >
+            <Trash2 className="w-4 h-4" />
+            Clear Cache
+          </button>
+        </div>
       </div>
-      
-      {/* Daily/Weekly Breakdown Table */}
-      {selectedTimeframe === '1week' && timeframeData?.daily_breakdown && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-foreground mb-4">Daily Forecast Breakdown</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Day</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Estimated Cost</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Cumulative</th>
-                </tr>
-              </thead>
-              <tbody>
-                {timeframeData.daily_breakdown.map((day: any, idx: number) => (
-                  <tr key={idx} className="border-b border-border hover:bg-muted/50">
-                    <td className="py-3 px-4 font-medium">Day {day.day}</td>
-                    <td className="py-3 px-4 text-right">${day.cost.toLocaleString()}</td>
-                    <td className="py-3 px-4 text-right text-muted-foreground">${day.cumulative?.toLocaleString() || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-muted/30">
-                <tr>
-                  <td className="py-3 px-4 font-semibold">Total</td>
-                  <td className="py-3 px-4 text-right font-bold text-primary">${timeframeData.total?.toLocaleString()}</td>
-                  <td className="py-3 px-4 text-right"></td>
-                 </tr>
-              </tfoot>
-            </table>
+
+      {/* Three forecast blocks */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg">
+          <div className="flex items-center gap-2 mb-2 opacity-90">
+            <Clock className="w-4 h-4" />
+            <span className="text-xs font-semibold tracking-wider uppercase">Predicted Tomorrow</span>
           </div>
-        </Card>
-      )}
-      
-      {/* Weekly Breakdown for Monthly Forecast */}
-      {selectedTimeframe === '1month' && timeframeData?.weekly_breakdown && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-foreground mb-4">Weekly Forecast Breakdown</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {timeframeData.weekly_breakdown.map((week: any, idx: number) => (
-              <Card key={idx} className="p-4 bg-muted/30">
-                <p className="text-sm text-muted-foreground">Week {week.week}</p>
-                <p className="text-2xl font-bold text-primary">${week.cost.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground mt-2">Cumulative: ${week.cumulative?.toLocaleString()}</p>
-              </Card>
-            ))}
+          <div className="text-4xl font-bold mb-3">
+            ${resourceForecast.tomorrow_cost.toFixed(2)}
           </div>
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="flex justify-between items-center">
-              <span className="font-semibold text-foreground">Total Monthly Forecast:</span>
-              <span className="text-2xl font-bold text-primary">${timeframeData.total?.toLocaleString()}</span>
+          <p className="text-sm opacity-90 leading-snug">
+            If these current resources stay on, tomorrow your charges will be{' '}
+            <strong>${resourceForecast.tomorrow_cost.toFixed(2)}</strong>.
+          </p>
+        </div>
+
+        <div className="p-6 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg">
+          <div className="flex items-center gap-2 mb-2 opacity-90">
+            <Calendar className="w-4 h-4" />
+            <span className="text-xs font-semibold tracking-wider uppercase">Predicted Next Month</span>
+          </div>
+          <div className="text-4xl font-bold mb-3">
+            ${resourceForecast.next_month_cost.toFixed(2)}
+          </div>
+          <p className="text-sm opacity-90 leading-snug">
+            If these current resources stay on, next month your charges will be{' '}
+            <strong>${resourceForecast.next_month_cost.toFixed(2)}</strong>.
+          </p>
+        </div>
+
+        <div className="p-6 rounded-2xl bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg">
+          <div className="flex items-center gap-2 mb-2 opacity-90">
+            <TrendingUp className="w-4 h-4" />
+            <span className="text-xs font-semibold tracking-wider uppercase">Predicted 3 Months</span>
+          </div>
+          <div className="text-4xl font-bold mb-3">
+            ${resourceForecast.three_month_cost.toFixed(2)}
+          </div>
+          <p className="text-sm opacity-90 leading-snug">
+            If these current resources stay on, next 3 months your charges will be{' '}
+            <strong>${resourceForecast.three_month_cost.toFixed(2)}</strong>.
+          </p>
+        </div>
+      </div>
+
+      {/* AI Summary */}
+      {resourceForecast.ai_summary && (
+        <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-800">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-bold text-foreground mb-2">AI Insight</h3>
+              <p className="text-sm text-foreground/90 leading-relaxed">
+                {resourceForecast.ai_summary}
+              </p>
             </div>
           </div>
         </Card>
       )}
-      
-      {/* Monthly Breakdown for 3-Month Forecast */}
-      {selectedTimeframe === '3months' && timeframeData?.months_breakdown && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-foreground mb-4">Monthly Forecast Breakdown</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {timeframeData.months_breakdown.map((month: any, idx: number) => (
-              <Card key={idx} className="p-4 text-center bg-muted/30">
-                <p className="text-sm text-muted-foreground">Month {month.month}</p>
-                <p className="text-3xl font-bold text-primary mt-2">${month.cost.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground mt-2">Cumulative: ${month.cumulative?.toLocaleString()}</p>
-              </Card>
-            ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="flex justify-between items-center">
-              <span className="font-semibold text-foreground">Total 3-Month Forecast:</span>
-              <span className="text-2xl font-bold text-primary">${timeframeData.total?.toLocaleString()}</span>
-            </div>
-          </div>
-        </Card>
-      )}
-      
-      {/* Individual Service Forecasts */}
-      {forecastData.service_forecasts?.length > 0 && (
-        <Card className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold text-foreground">Service Cost Forecasts</h3>
-            {selectedService && (
-              <button
-                onClick={() => setSelectedService(null)}
-                className="text-sm text-primary hover:underline"
-              >
-                ← Back to All Services
-              </button>
-            )}
-          </div>
-          
-          {selectedService ? (
-            // Detailed view for a single service
-            (() => {
-              const service = forecastData.service_forecasts.find((s: any) => s.service === selectedService);
-              if (!service) return null;
-              return (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="text-xl font-bold text-foreground">{service.service}</h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Current monthly cost: <span className="font-semibold">${service.current_cost?.toLocaleString()}</span>
-                      </p>
-                    </div>
-                    <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      service.trend === 'increasing' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                      service.trend === 'decreasing' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                      'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-                    }`}>
-                      {service.trend === 'increasing' ? '↑' : service.trend === 'decreasing' ? '↓' : '→'} 
-                      {Math.abs(service.trend_rate)}% per month
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                    {service.predictions?.map((pred: any, idx: number) => (
-                      <Card key={idx} className="p-4 text-center">
-                        <p className="text-sm text-muted-foreground">{pred.date || `Month ${pred.month}`}</p>
-                        <p className="text-2xl font-bold text-primary mt-2">${pred.cost?.toLocaleString()}</p>
-                      </Card>
-                    ))}
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <Card className="p-4 bg-primary/5">
-                      <p className="text-sm text-muted-foreground">Next Month Forecast</p>
-                      <p className="text-2xl font-bold text-primary">${service.next_month_cost?.toLocaleString()}</p>
-                    </Card>
-                    <Card className="p-4 bg-primary/5">
-                      <p className="text-sm text-muted-foreground">Quarterly Total (3 months)</p>
-                      <p className="text-2xl font-bold text-primary">${service.quarterly_cost?.toLocaleString()}</p>
-                    </Card>
+
+      {/* Resource bars */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-foreground">
+            Resources by cost — {topResources.length}
+          </h3>
+          <span className="text-xs text-muted-foreground">
+            Sorted highest → lowest · percentage of total monthly cost
+          </span>
+        </div>
+
+        <div className="space-y-2">
+          {topResources.map((r, idx) => (
+            <div
+              key={idx}
+              className="relative rounded-lg border border-border overflow-hidden bg-card"
+            >
+              {/* Bar fill */}
+              <div
+                className="absolute inset-y-0 left-0 opacity-10"
+                style={{
+                  width: `${Math.max(r.percentage, 1)}%`,
+                  backgroundColor: verdictColor[r.ai_verdict] || '#94a3b8',
+                }}
+              />
+
+              {/* Verdict color stripe */}
+              <div
+                className="absolute inset-y-0 left-0 w-1"
+                style={{ backgroundColor: verdictColor[r.ai_verdict] || '#94a3b8' }}
+              />
+
+              <div className="relative flex items-center justify-between gap-4 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      #{idx + 1}
+                    </span>
+                    <span className="font-semibold text-foreground truncate">
+                      {r.resource_id}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                      {r.service_name}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                      {r.resource_type}
+                    </span>
                   </div>
                 </div>
-              );
-            })()
-          ) : (
-            // List view of all services
-            <div className="space-y-2">
-              {forecastData.service_forecasts.map((service: any, idx: number) => (
-                <div
-                  key={idx}
-                  onClick={() => setSelectedService(service.service)}
-                  className="flex items-center justify-between p-4 bg-muted/30 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${
-                        service.trend === 'increasing' ? 'bg-red-500' :
-                        service.trend === 'decreasing' ? 'bg-green-500' :
-                        'bg-gray-500'
-                      }`} />
-                      <p className="font-semibold text-foreground">{service.service}</p>
+
+                <div className="flex items-center gap-6 flex-shrink-0">
+                  <div className="text-right">
+                    <div className="text-xs text-muted-foreground">Share</div>
+                    <div className="font-bold text-foreground text-sm">
+                      {r.percentage.toFixed(2)}%
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Current: <span className="font-medium">${service.current_cost?.toLocaleString()}/month</span>
-                    </p>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Next Month</p>
-                      <p className="font-bold text-primary">${service.next_month_cost?.toLocaleString()}</p>
+                  <div className="text-right">
+                    <div className="text-xs text-muted-foreground">Monthly</div>
+                    <div className="font-bold text-foreground">
+                      ${r.monthly_cost.toFixed(2)}
                     </div>
-                    <div className={`text-sm font-medium ${
-                      service.trend === 'increasing' ? 'text-red-500' :
-                      service.trend === 'decreasing' ? 'text-green-500' :
-                      'text-gray-500'
-                    }`}>
-                      {service.trend === 'increasing' ? '↑' : service.trend === 'decreasing' ? '↓' : '→'}
-                      {Math.abs(service.trend_rate)}%
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
-      
-      {/* Top Growing Services Alert */}
-      {forecastData.top_growing_services?.length > 0 && !selectedService && (
-        <Card className="p-6 border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20">
-          <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle className="w-5 h-5 text-red-500" />
-            <h3 className="text-lg font-semibold text-foreground">⚠️ Fastest Growing Services</h3>
-          </div>
-          <div className="space-y-3">
-            {forecastData.top_growing_services.map((service: any, idx: number) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-white/50 dark:bg-black/20 rounded-lg">
-                <div>
-                  <p className="font-semibold text-foreground">{service.service}</p>
-                  <p className="text-sm text-muted-foreground">
-                    ${service.previous_cost?.toLocaleString()} → ${service.current_cost?.toLocaleString()}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xl font-bold text-red-500">+{service.growth_rate}%</p>
-                  <p className="text-sm text-muted-foreground">+${service.cost_increase?.toLocaleString()}</p>
+                  <div
+                    className="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: `${verdictColor[r.ai_verdict]}20`,
+                      color: verdictColor[r.ai_verdict] || '#64748b',
+                    }}
+                  >
+                    {r.ai_verdict.replace('_', ' ')}
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-          <p className="text-sm text-muted-foreground mt-4">
-            These services are growing faster than average. Consider reviewing their usage patterns.
-          </p>
-        </Card>
-      )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
+  
 
 // Helper functions for chart data
 const getChartData = () => {
@@ -3319,8 +3288,7 @@ const getChartLabels = () => {
             />
             )}
 
-             {selectedMenu === "forecast" && accountId && renderForecastSection()}
-
+           {selectedMenu === "forecast" && accountId && renderResourceForecastSection()}
              {/* AI Recommendations Section */}
             {selectedMenu === "rightsizing" && accountId && renderAIRecommendationsSection()}
 
